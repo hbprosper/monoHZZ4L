@@ -463,7 +463,7 @@ void monoHZZ4L::analysis(string inputFile,
   else
     {
       // assume this is a filelist
-      ifstream inp(inputFile);
+      ifstream inp(inputFile.c_str());
       if ( !inp.good() ) nic::ciao("can't open " + inputFile);
       string infilename;
       while (getline(inp, infilename))

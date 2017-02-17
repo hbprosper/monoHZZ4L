@@ -16,7 +16,7 @@ To run the analysis do
     
     cd work
 	source build.sh
-	./mkNtuple -x cross-section -l integrated-luminosity Delphes-file
+	analyzeHZZ4L -x cross-section -l integrated-luminosity Delphes-file
 	
     
 	    
