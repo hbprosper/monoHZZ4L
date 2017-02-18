@@ -13,13 +13,11 @@ int main(int argc, char** argv)
   if ( argc < 2 )
     {
       cout << "Usage: " << endl;
-      cout << "./mkRGSntuple -l lumi -x xection Delphe file" << endl;
+      cout << "./mkRGSntuple -l lumi -x xection [-g] Delphes file" << endl;
       exit(0);
     }
 
 
-  string inputFile("");
-  
   char optchar=0;        // single-character command line option
 
   // Loop until there are no more entries in argv
@@ -30,7 +28,8 @@ int main(int argc, char** argv)
   // -c=Y  with value Y
   double lumi=1.0;
   double xsection = 1.0;
-  while ( (optchar = getopt(argc, argv, "l:x:")) != -1)
+  bool useRECO = true;
+  while ( (optchar = getopt(argc, argv, "gl:x:")) != -1)
     {
       switch (optchar)
         {
@@ -44,24 +43,26 @@ int main(int argc, char** argv)
 	    xsection = atof(optarg);
             break;
           }
+	case 'g':
+	  {
+	    useRECO = false;
+	    break;
+	  }
         default:
           {
 	    cout << "\tgo boil your head!" << endl;
             exit(0);
           }
         }
-      if ( optind < argc )
-	{
-	  inputFile = string(argv[optind]);
-	  break;
-	}
     }
+  string inputFile(argv[argc-1]);
+  cout << endl;
   cout << "input File:    " << inputFile << endl;
   cout << "cross section: " << xsection << " fb" << endl;
   
   int nevents = -1;
   
-  monoHZZ4L::analysis(inputFile, nevents, lumi, xsection);
+  monoHZZ4L::analysis(inputFile, nevents, lumi, xsection, useRECO);
 
   return 0;
 }

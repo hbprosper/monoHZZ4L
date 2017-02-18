@@ -413,9 +413,14 @@ bool ghostFree(LHParticle& L1,
 void monoHZZ4L::analysis(string inputFile,
 			 int    numberEvents,
 			 double luminosity,
-			 double xsection)
+			 double xsection,
+			 bool useRECO)
 {
   cout << endl << "\t== monoHZZ4L::analysis ==" << endl;
+  if ( useRECO )
+    cout << "\t== use RECO level leptons ==" << endl;
+  else
+    cout << "\t== use GEN level leptons ==" << endl;
   
   // -----------------------------------------
   // Objects
@@ -795,7 +800,19 @@ void monoHZZ4L::analysis(string inputFile,
       // -----------------------------------------------------
       LHParticle::s_UID = 0; // reset unique ID (UID) 
       vector<LHParticle> lepton;
-      copyLeptons(branchElectron, branchMuon, lepton);
+      if ( useRECO )
+	{
+	  copyLeptons(branchElectron, branchMuon, lepton);
+	}
+      else
+	{
+	  for(size_t c=0; c < gparticles.size(); c++)
+	    {
+	      int ID = abs(gparticles[c].PID);
+	      if( (ID == ELECTRON) || (ID == MUON) )	  
+		lepton.push_back(gparticles[c]);
+	    }
+	}
       
       // apply lepton filter
       filterLeptons(lepton);
