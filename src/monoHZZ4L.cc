@@ -105,52 +105,36 @@ void copyLeptons(TClonesArray* electrons,
 }
 
 
-double copyGenLeptons(std::vector<LHParticle>& gparticles,
+double copyGenLeptons(std::vector<LHParticle*>& genlepton,
 		      std::vector<LHParticle>& lepton,
 		      LeptonEfficiency& muonEff,
 		      LeptonEfficiency& elecEff)
 {
   double weight = 1.0;
-  for(size_t c=0; c < gparticles.size(); c++)
+
+  for(size_t c = 0; c < genlepton.size(); c++)
     {
-      int ID = abs(gparticles[c].PID);
-
-      if ( ID == ELECTRON )
+      int ID = abs(genlepton[c]->PID);
+      if( (ID == ELECTRON) || (ID == MUON) )
 	{
-	  lepton.push_back(gparticles[c]);
-	  
-	  double w = elecEff(lepton.back().Pt(), lepton.back().Eta());
+	  lepton.push_back(*genlepton[c]);
+	  double w=1;
+	  if ( ID == ELECTRON )
+	    w = elecEff(lepton.back().Pt(), lepton.back().Eta());
+	  else if ( ID == MUON )
+	    w = muonEff(lepton.back().Pt(), lepton.back().Eta());
 	  weight *= w;
-	  
-	  if ( DEBUG > 0 )
-	    {
-	      cout << "electron eff(pt = "
-		   << lepton.back().Pt()
-		   << ", eta = " << lepton.back().Eta()
-		   << ") = " << w << endl;
-	    }
-
 	}
-      else if ( ID == MUON )
-	{
-	  lepton.push_back(gparticles[c]);
-
-	  double w = muonEff(lepton.back().Pt(), lepton.back().Eta());
-	  weight *= w;
-	  
-	  if ( DEBUG > 0 )
-	    {
-	      cout << "muon eff(pt = "
-		   << lepton.back().Pt()
-		   << ", |eta| = " << lepton.back().Eta()
-		   << ") = " << w << endl;
-	    }	  
-
-	}	
     }
+  
   // sort in descending order of pT
   sort(lepton.begin(), lepton.end());
-  
+  if ( DEBUG > 0 )
+    {
+      cout << "LEPTONS" << endl;
+      for(size_t c=0; c < lepton.size(); c++)
+	cout << lepton[c] << endl;
+    }
   return weight;
 }
 
@@ -231,9 +215,10 @@ getBosons(vector<LHParticle>&  particles,
 	  vector<LHParticle*>& genZ,
 	  vector<LHParticle*>& genL)
 {
-  // get Higgs boson and its Z boson daughters
+  // get Higgs and Z bosons
   LHParticle* H=0;
   vector<LHParticle*> tmpZ;
+  vector<pair<float, int> > mass;
   for(size_t c = 0; c < particles.size(); c++)
     {
       if      ( particles[c].PID == HBOSON )
@@ -243,18 +228,20 @@ getBosons(vector<LHParticle>&  particles,
       else if ( particles[c].PID == ZBOSON )
 	{
 	  tmpZ.push_back( &particles[c] );
-	  
-	  // set mass as ordering parameter
-	  tmpZ.back()->Order = tmpZ.back()->M();
+	  mass.push_back(pair<float, int>(1.0/tmpZ.back()->M(), tmpZ.size()-1));
 	}
     }
   // order in descending order of mass so that Z1 is first, then Z2
-  sort(tmpZ.begin(), tmpZ.end());
-
+  sort(mass.begin(), mass.end());
+  
   // get leptons from Z bosons
   for(size_t c=0; c < tmpZ.size(); c++)
     {
-      LHParticle* Z = tmpZ[c];
+      pair<float, int> m = mass[c];
+      LHParticle* Z = tmpZ[m.second];
+      if ( DEBUG > 0 )
+	cout << *Z << endl;
+      
       int d1 = Z->Daughters[0];
       int d2 = Z->Daughters[1];
       int ID = abs(particles[d1].PID);
@@ -270,7 +257,7 @@ getBosons(vector<LHParticle>&  particles,
 	    {
 	      genL.push_back(&particles[d2]);
 	      genL.push_back(&particles[d1]);
-	    }	    
+	    }
 	  }
       }
   assert(genZ.size()>1);
@@ -714,7 +701,7 @@ void monoHZZ4L::analysis(string inputFile,
     
   long int numberOfEntries = treeReader->GetEntries();
 
-  //numberOfEntries = 1000;
+  //numberOfEntries = 100;
   
   if ( numberEvents > 0 ) numberOfEntries = numberEvents;
   std::cout << "\t=> analyzing " << numberOfEntries <<" events" << std::endl;
@@ -810,6 +797,7 @@ void monoHZZ4L::analysis(string inputFile,
       vector<LHParticle*> genZ;
       vector<LHParticle*> genL;
       LHParticle* genH  = getBosons(gparticles, genZ, genL);
+
       
       LHParticle* genZ1 = 0;
       LHParticle* genL1 = 0;
@@ -880,14 +868,13 @@ void monoHZZ4L::analysis(string inputFile,
 	  if ( DEBUG > 0 )
 	    cout << "==> get GEN leptons " << endl;
 	  
-	  double effWeight = copyGenLeptons(gparticles, lepton,
-					    *muonEff, *elecEff);
+	  double effWeight = copyGenLeptons(genL, lepton, *muonEff, *elecEff);
 	  if ( DEBUG > 0 )
 	    cout << "==> lepton efficiency weight: " << effWeight << endl;
 	  
 	  eventWeight *= effWeight;
 	}
-      
+
       // apply lepton filter
       filterLeptons(lepton);
       
@@ -1347,4 +1334,8 @@ void monoHZZ4L::analysis(string inputFile,
    cuts->Write();
    
    gSystem->Sleep(5000);
+
+
+   if ( muonEff ) delete muonEff;
+   if ( elecEff ) delete elecEff;
 }

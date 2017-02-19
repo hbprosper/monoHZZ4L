@@ -80,11 +80,11 @@ LDFLAGS += $(shell root-config --ldflags) -L$(DELPHES)
 LIBS 	:= -lDelphes -lPyROOT $(shell root-config --libs --nonew)
 LIBRARY	:= $(libdir)/lib$(NAME)$(LDEXT)
 # ----------------------------------------------------------------------------
-all: $(PROGRAMS)
+all: $(LIBRARY) $(PROGRAMS)
 
 lib: $(LIBRARY)
 
-$(PROGRAMS)	: 	$(bindir)/%	:	$(srcdir)/%.o 	$(LIBRARY)
+$(PROGRAMS)	: 	$(bindir)/%	:	$(srcdir)/%.o
 	@echo ""
 	@echo "=> Linking program $@"
 	$(LD) $(LDFLAGS) $^ $(LIBS) -L$(libdir) -l$(NAME) -o $@
