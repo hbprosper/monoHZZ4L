@@ -13,7 +13,8 @@ int main(int argc, char** argv)
   if ( argc < 2 )
     {
       cout << "Usage: " << endl;
-      cout << "./mkRGSntuple -l lumi -x xection [-g] Delphes file" << endl;
+      cout << "\tanalyzeHZZ4L -l lumi -x cross-ection [-g] Delphes-file"
+	   << endl;
       exit(0);
     }
 
