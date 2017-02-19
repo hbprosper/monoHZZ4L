@@ -70,10 +70,10 @@ LDFLAGS		:= -g
 # which operating system?
 OS := $(shell uname -s)
 ifeq ($(OS),Darwin)
-	LDFLAGS += -dynamiclib
+	LDSHARE := -dynamiclib
 	LDEXT	:= .dylib
 else
-	LDFLAGS	+= -shared
+	LDSHARE	:= -shared
 	LDEXT	:= .so
 endif	
 LDFLAGS += $(shell root-config --ldflags) -L$(DELPHES)
@@ -92,7 +92,7 @@ $(PROGRAMS)	: 	$(bindir)/%	:	$(srcdir)/%.o 	$(LIBRARY)
 $(LIBRARY)	: $(OBJECTS)
 	@echo ""
 	@echo "=> Linking shared library $@"
-	$(LD) $(LDFLAGS) $^ $(LIBS)  -o $@
+	$(LD) $(LDFLAGS) $(LDSHARE) $^ $(LIBS)  -o $@
 
 $(ALLOBJECTS)	: %.o	: 	%.cc
 	@echo ""
