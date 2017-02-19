@@ -40,6 +40,7 @@
 #include "monoHZZ4L.h"
 #include "nic.h"
 #include "Shrub.h"
+#include "LeptonEfficiency.h"
 
 using namespace std;
 
@@ -101,6 +102,56 @@ void copyLeptons(TClonesArray* electrons,
  
   // sort in descending order of pT
   sort(lepton.begin(), lepton.end());
+}
+
+
+double copyGenLeptons(std::vector<LHParticle>& gparticles,
+		      std::vector<LHParticle>& lepton,
+		      LeptonEfficiency& muonEff,
+		      LeptonEfficiency& elecEff)
+{
+  double weight = 1.0;
+  for(size_t c=0; c < gparticles.size(); c++)
+    {
+      int ID = abs(gparticles[c].PID);
+
+      if ( ID == ELECTRON )
+	{
+	  lepton.push_back(gparticles[c]);
+	  
+	  double w = elecEff(lepton.back().Pt(), lepton.back().Eta());
+	  weight *= w;
+	  
+	  if ( DEBUG > 0 )
+	    {
+	      cout << "electron eff(pt = "
+		   << lepton.back().Pt()
+		   << ", eta = " << lepton.back().Eta()
+		   << ") = " << w << endl;
+	    }
+
+	}
+      else if ( ID == MUON )
+	{
+	  lepton.push_back(gparticles[c]);
+
+	  double w = muonEff(lepton.back().Pt(), lepton.back().Eta());
+	  weight *= w;
+	  
+	  if ( DEBUG > 0 )
+	    {
+	      cout << "muon eff(pt = "
+		   << lepton.back().Pt()
+		   << ", |eta| = " << lepton.back().Eta()
+		   << ") = " << w << endl;
+	    }	  
+
+	}	
+    }
+  // sort in descending order of pT
+  sort(lepton.begin(), lepton.end());
+  
+  return weight;
 }
 
 void purgeParticles(std::vector<LHParticle>& particles)
@@ -421,6 +472,21 @@ void monoHZZ4L::analysis(string inputFile,
     cout << "\t== use RECO level leptons ==" << endl;
   else
     cout << "\t== use GEN level leptons ==" << endl;
+
+  LeptonEfficiency* muonEff=0;
+  LeptonEfficiency* elecEff=0;
+  
+  if ( ! useRECO )
+    {
+      muonEff = new LeptonEfficiency("EfficienciesAndSF_BCDEF.root",
+				     "TightISO_TightID_pt_eta/"
+				     "efficienciesMC/"
+				     "abseta_pt_MC",
+				     true); // use |eta|
+				       
+      elecEff = new LeptonEfficiency("egammaEffi.txt_EGM2D.root",
+				     "EGamma_EffMC2D");
+    }
   
   // -----------------------------------------
   // Objects
@@ -673,7 +739,8 @@ void monoHZZ4L::analysis(string inputFile,
   // BR(Z->l+l-)           = 3.3658e-2
   // -----------------------------------------
   double eventCount  = xsection * luminosity;
-  double eventWeight = eventCount / numberOfEntries;
+  double eventWeightOrig = eventCount / numberOfEntries;
+  double eventWeight = eventWeightOrig;
   
   char preamble[512];
   sprintf(preamble,
@@ -704,7 +771,10 @@ void monoHZZ4L::analysis(string inputFile,
   // -----------------------------------------
   for(Int_t entry = 0; entry < numberOfEntries; entry++)
     {
-    
+      // remember to reset event weight to its original value
+      
+      eventWeight = eventWeightOrig;
+      
       bool printMe = entry % 10000 == 0;
       
       if ( printMe )
@@ -726,6 +796,7 @@ void monoHZZ4L::analysis(string inputFile,
       // -----------------------------------------------------
       // first bin of h_nEvent contains the total event weight
       // -----------------------------------------------------
+
       h_nEvent->Fill(0.1, eventWeight);
     
       // -----------------------------------------------------
@@ -806,12 +877,15 @@ void monoHZZ4L::analysis(string inputFile,
 	}
       else
 	{
-	  for(size_t c=0; c < gparticles.size(); c++)
-	    {
-	      int ID = abs(gparticles[c].PID);
-	      if( (ID == ELECTRON) || (ID == MUON) )	  
-		lepton.push_back(gparticles[c]);
-	    }
+	  if ( DEBUG > 0 )
+	    cout << "==> get GEN leptons " << endl;
+	  
+	  double effWeight = copyGenLeptons(gparticles, lepton,
+					    *muonEff, *elecEff);
+	  if ( DEBUG > 0 )
+	    cout << "==> lepton efficiency weight: " << effWeight << endl;
+	  
+	  eventWeight *= effWeight;
 	}
       
       // apply lepton filter

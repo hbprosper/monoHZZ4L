@@ -15,16 +15,21 @@ incdir	:= include
 srcdir	:= src
 libdir	:= lib
 bindir	:= bin
+
 $(shell mkdir -p lib)
 
 # get lists of sources
+APPS	:=	analyzeHZZ4L
+PROGRAMS:=	$(foreach x,$(APPS),$(bindir)/$x)
+APPSRCS	:=	$(foreach x,$(APPS),$(srcdir)/$x.cc)
 
 SRCS	:= 	$(srcdir)/monoHZZ4L.cc \
-		$(srcdir)/nic.cc
+		$(srcdir)/nic.cc \
+		$(srcdir)/LeptonEfficiency.cc
 
 CINTSRCS:= $(wildcard $(srcdir)/*_dict.cc)
 
-OTHERSRCS:= $(filter-out $(CINTSRCS) $(SRCS),$(wildcard $(srcdir)/*.cc))
+OTHERSRCS:= $(filter-out $(CINTSRCS) $(APPSRCS) $(SRCS),$(wildcard $(srcdir)/*.cc))
 
 # list of dictionaries to be created
 DICTIONARIES	:= $(SRCS:.cc=_dict.cc)
@@ -32,10 +37,17 @@ DICTIONARIES	:= $(SRCS:.cc=_dict.cc)
 # get list of objects
 OBJECTS		:= $(OTHERSRCS:.cc=.o) $(SRCS:.cc=.o) $(DICTIONARIES:.cc=.o)
 
+APPOBJS	:= $(APPSRCS:.cc=.o)
+
+ALLOBJECTS	:= $(OBJECTS) $(APPOBJS)
+
+
+
 #say := $(shell echo "DICTIONARIES:     $(DICTIONARIES)" >& 2)
 #say := $(shell echo "" >& 2)
-#say := $(shell echo "SRCS: $(SRCS)" >& 2)
-#say := $(shell echo "OBJECTS: $(OBJECTS)" >& 2)
+#say := $(shell echo "APPS: $(APPS)" >& 2)
+#say := $(shell echo "APPOBJS: $(APPOBJS)" >& 2)
+#say := $(shell echo "ALLOBJECTS: $(ALLOBJECTS)" >& 2)
 #$(error bye)
 # ----------------------------------------------------------------------------
 ROOTCINT	:= rootcint
@@ -68,14 +80,21 @@ LDFLAGS += $(shell root-config --ldflags) -L$(DELPHES)
 LIBS 	:= -lDelphes -lPyROOT $(shell root-config --libs --nonew)
 LIBRARY	:= $(libdir)/lib$(NAME)$(LDEXT)
 # ----------------------------------------------------------------------------
-all: $(LIBRARY)
+all: $(PROGRAMS)
+
+lib: $(LIBRARY)
+
+$(PROGRAMS)	: 	$(bindir)/%	:	$(srcdir)/%.o 	$(LIBRARY)
+	@echo ""
+	@echo "=> Linking program $@"
+	$(LD) $(LDFLAGS) $^ $(LIBS) -L$(libdir) -l$(NAME) -o $@
 
 $(LIBRARY)	: $(OBJECTS)
 	@echo ""
 	@echo "=> Linking shared library $@"
 	$(LD) $(LDFLAGS) $^ $(LIBS)  -o $@
 
-$(OBJECTS)	: %.o	: 	%.cc
+$(ALLOBJECTS)	: %.o	: 	%.cc
 	@echo ""
 	@echo "=> Compiling $<"
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
@@ -90,4 +109,4 @@ tidy:
 	rm -rf $(srcdir)/*_dict*.* $(srcdir)/*.o 
 
 clean:
-	rm -rf $(libdir)/* $(srcdir)/*_dict*.* $(srcdir)/*.o
+	rm -rf $(libdir)/* $(srcdir)/*_dict*.* $(srcdir)/*.o $(PROGRAMS)

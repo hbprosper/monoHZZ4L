@@ -1,0 +1,52 @@
+! --------------------------------------------------------------------------
+! File: pp13TeV_HZZ4L.cmd
+! Generate all SM Higgs processes, while forcing the Higgs to decay to
+! 4 leptons, but exclude VBF production
+! --------------------------------------------------------------------------
+! 1) Settings that will be used in a main program.
+Main:numberOfEvents = 200000       ! number of events to generate/read
+Main:timesAllowErrors = 3000       ! abort run after this many flawed events
+! --------------------------------------------------------------------------
+! 2) Settings related to output in init(), next() and stat().
+Init:showChangedSettings = on      ! list changed settings
+Init:showAllSettings = off         ! list all settings
+Init:showChangedParticleData = on  ! list changed particle data
+Init:showAllParticleData = off     ! list all particle data
+
+Next:numberCount = 50000           ! print message every n events
+Next:numberShowLHA = 0             ! print LHA information n times
+Next:numberShowInfo = 0            ! print event information n times
+Next:numberShowProcess = 1         ! print process record n times
+Next:numberShowEvent = 1           ! print event record n times
+
+Stat:showPartonLevel = off         ! additional statistics on MPI
+! --------------------------------------------------------------------------
+! 3) Beam parameter settings. 
+Beams:idA = 2212                   ! first beam,  p = 2212, pbar = -2212
+Beams:idB = 2212                   ! second beam, p = 2212, pbar = -2212
+Beams:eCM = 13000.                 ! CM energy of collision
+! --------------------------------------------------------------------------
+! 4) Process
+HiggsSM:all      = off
+HiggsSM:ffbar2H  = on		   ! Higgs boson prod.
+HiggsSM:ffbar2HZ = on
+HiggsSM:ffbar2HW = on
+HiggsSM:qqbar2Httbar = on
+HiggsSM:gg2H     = on
+HiggsSM:gg2Httbar= on
+
+25:m0        = 125.0		   ! (GeV) Higgs boson mass
+25:onMode    = off		   ! all Higgs decays off
+25:onIfMatch = 23 23		   ! decay to ZZ
+
+23:onMode    = off                 ! all Z decays off
+23:onIfAny   = 11 13 15	           ! Z  to e-e+, mu-mu+, tau-tau+
+PhaseSpace:pTHatMin = 2.	   ! minimum pT of hard process
+! --------------------------------------------------------------------------
+! 5) Parton level control.
+PartonLevel:ISR = on               ! Initial state radiation
+PartonLevel:FSR = on               ! Final state radiation
+PartonLevel:MPI = on		   ! Multiple interactions
+! --------------------------------------------------------------------------
+Random::setSeed = on
+Random:seed     = 123456
