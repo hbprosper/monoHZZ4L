@@ -552,24 +552,18 @@ void monoHZZ4L::analysis(string inputFile,
   vector<TH1F*> h;
   
   cout << endl << "\t=> initialize histograms" << endl;
-  TH1F* h_nEvent = new TH1F("h_nEvent", "Cut flow", 12, 0, 12);
+  TH1F* h_nEvent = new TH1F("h_nEvent", "Cut flow", 9, 0, 9);
   h.push_back(h_nEvent);
   h_nEvent->Sumw2();
   h_nEvent->GetXaxis()->SetBinLabel(1,"no cuts");
-
-  h_nEvent->GetXaxis()->SetBinLabel(2,"lepton > 1");
-  h_nEvent->GetXaxis()->SetBinLabel(3,"dilepton > 0");
+  h_nEvent->GetXaxis()->SetBinLabel(2,"lepton >= 4");
+  h_nEvent->GetXaxis()->SetBinLabel(3,"dilepton >= 1");
   h_nEvent->GetXaxis()->SetBinLabel(4,"Z1");
-
-  h_nEvent->GetXaxis()->SetBinLabel(5,"lepton > 2");
-  
-  h_nEvent->GetXaxis()->SetBinLabel(6,"lepton > 3");
-  h_nEvent->GetXaxis()->SetBinLabel(7,"dilepton > 1");
-  h_nEvent->GetXaxis()->SetBinLabel(8,"Z2");
-  h_nEvent->GetXaxis()->SetBinLabel(9,"pTl1>20");
-  h_nEvent->GetXaxis()->SetBinLabel(10,"pTl2>10");
-  h_nEvent->GetXaxis()->SetBinLabel(11,"ghost free");
-  h_nEvent->GetXaxis()->SetBinLabel(12,"m4l>70");
+  h_nEvent->GetXaxis()->SetBinLabel(5,"dilepton >= 2");
+  h_nEvent->GetXaxis()->SetBinLabel(6,"Z2");
+  h_nEvent->GetXaxis()->SetBinLabel(7,"pTl1 > 20");
+  h_nEvent->GetXaxis()->SetBinLabel(8,"pTl2 > 10");
+  h_nEvent->GetXaxis()->SetBinLabel(9,"m4l > 70");
   
   TH1F* h_nleptons = new TH1F("nleptons", "", 10, 0, 10);
   h.push_back(h_nleptons);
@@ -880,7 +874,14 @@ void monoHZZ4L::analysis(string inputFile,
       if ( DEBUG > 0 )
 	cout << "==> number of selected leptons: "
 	     << lepton.size() << endl;
-         
+
+      // ----------------------------------------------------------
+      // CUT 1: number of leptons >= 4
+      // ----------------------------------------------------------
+      if ( !(lepton.size() > 3) )  continue;
+      h_nEvent->Fill(1.1, eventWeight);
+
+
       // Match gen leptons to reco leptons
       nic::Match match;
       if ( genL.size() > 0 )
@@ -904,12 +905,6 @@ void monoHZZ4L::analysis(string inputFile,
 	}
       h_maxmatch->Fill(maxii);
       h_nummatch->Fill(nmatch);
-      
-      // ----------------------------------------------------------
-      // CUT 1: number of leptons > 1
-      // ----------------------------------------------------------
-      if ( !(lepton.size() > 1) )  continue;
-      h_nEvent->Fill(1.1, eventWeight);
       
       // ----------------------------------------------------------
       // CUT 2: number of (opposite-sign, same-flavor dileptons
@@ -954,24 +949,12 @@ void monoHZZ4L::analysis(string inputFile,
 	}
        
       // ----------------------------------------------------------
-      // CUT 4: number of leptons > 2
-      // ----------------------------------------------------------
-      if ( !(lepton.size() > 2) ) continue;
-      h_nEvent->Fill(4.1, eventWeight);
-    
-      // ----------------------------------------------------------
-      // CUT 5: number of leptons > 3
-      // ----------------------------------------------------------
-      if ( !(lepton.size() > 3) ) continue;
-      h_nEvent->Fill(5.1, eventWeight);
-      
-      // ----------------------------------------------------------
-      // CUT 6: find other dileptons
+      // CUT 4: find other dileptons
       // ----------------------------------------------------------
       // purge dileptons that share a lepton with Z1
       purgeDileptons(dilepton, Z1);    
       if ( !(dilepton.size() > 0) )  continue;
-      h_nEvent->Fill(6.1, eventWeight);
+      h_nEvent->Fill(4.1, eventWeight);
       
       if ( DEBUG > 0 )
 	{
@@ -982,11 +965,11 @@ void monoHZZ4L::analysis(string inputFile,
 	}
       
       // ----------------------------------------------------------
-      // CUT 7: find Z2
+      // CUT 5: find Z2
       // ----------------------------------------------------------
       which = findZ2(dilepton);
       if ( which < 0 ) continue;
-      h_nEvent->Fill(7.1, eventWeight);
+      h_nEvent->Fill(5.1, eventWeight);
 
       LHParticle Z2 = dilepton[which];
       LHParticle L3 = lepton[Z2.Daughters[0]];
@@ -1005,7 +988,7 @@ void monoHZZ4L::analysis(string inputFile,
 	}
 
       // ----------------------------------------------------------
-      // CUT 8: pTl1 > 20 GeV
+      // CUT 6: pTl1 > 20 GeV
       // ----------------------------------------------------------
       vector<LHParticle> lep4;
       lep4.push_back(L1);
@@ -1015,27 +998,21 @@ void monoHZZ4L::analysis(string inputFile,
       sort(lep4.begin(), lep4.end());
       
       if ( !(lep4[0].Pt() > 20) ) continue;
-      h_nEvent->Fill(8.1, eventWeight);
+      h_nEvent->Fill(6.1, eventWeight);
 
       // ----------------------------------------------------------
-      // CUT 9: pTl2 > 10 GeV
+      // CUT 7: pTl2 > 10 GeV
       // ----------------------------------------------------------
       if ( !(lep4[1].Pt() > 10) ) continue;
-      h_nEvent->Fill(9.1, eventWeight);      
-
-      // ----------------------------------------------------------
-      // CUT 10: ghost removal;
-      // ----------------------------------------------------------
-      if ( !ghostFree(lep4) ) continue;
-      h_nEvent->Fill(10.1, eventWeight);      			 
+      h_nEvent->Fill(7.1, eventWeight);      
       
       // ----------------------------------------------------------
-      // CUT 11: m4l > 70 GeV
+      // CUT 8: m4l > 70 GeV
       // ----------------------------------------------------------
       // compute 4-lepton 4-vector
       LHParticle H = Z1 + Z2;
       if ( !(H.M() > 70) ) continue;
-      h_nEvent->Fill(11.1, eventWeight);      			 
+      h_nEvent->Fill(8.1, eventWeight);      			 
 
 
             
