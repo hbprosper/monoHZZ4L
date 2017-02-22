@@ -31,6 +31,7 @@
 #include "TSystem.h"
 #include "TClonesArray.h"
 #include "TRandom3.h"
+#include "TLatex.h"
 
 #include "external/ExRootAnalysis/ExRootTreeReader.h"
 #include "classes/DelphesClasses.h"
@@ -416,23 +417,14 @@ findZ2(vector<LHParticle>& dilepton)
 }
 
 
-bool ghostFree(LHParticle& L1,
-	       LHParticle& L2,
-	       LHParticle& L3,
-	       LHParticle& L4)
+bool ghostFree(vector<LHParticle>& lepton)
 {
-  vector<LHParticle*> lepton;
-  lepton.push_back(&L1);
-  lepton.push_back(&L2);
-  lepton.push_back(&L3);
-  lepton.push_back(&L4);
-
   for(size_t i = 0; i < lepton.size(); i++)
     {
-      LHParticle& pi = *lepton[i];
+      LHParticle& pi = lepton[i];
       for(size_t j = i+1; j < lepton.size(); j++)
 	{
-	  LHParticle& pj = *lepton[j];
+	  LHParticle& pj = lepton[j];
 
 	  double dR = nic::deltaR(pi.Eta(), pi.Phi(),
 				  pj.Eta(), pj.Phi());
@@ -560,7 +552,7 @@ void monoHZZ4L::analysis(string inputFile,
   vector<TH1F*> h;
   
   cout << endl << "\t=> initialize histograms" << endl;
-  TH1F* h_nEvent = new TH1F("h_nEvent", "Cut flow", 8, 0, 8);
+  TH1F* h_nEvent = new TH1F("h_nEvent", "Cut flow", 12, 0, 12);
   h.push_back(h_nEvent);
   h_nEvent->Sumw2();
   h_nEvent->GetXaxis()->SetBinLabel(1,"no cuts");
@@ -574,6 +566,10 @@ void monoHZZ4L::analysis(string inputFile,
   h_nEvent->GetXaxis()->SetBinLabel(6,"lepton > 3");
   h_nEvent->GetXaxis()->SetBinLabel(7,"dilepton > 1");
   h_nEvent->GetXaxis()->SetBinLabel(8,"Z2");
+  h_nEvent->GetXaxis()->SetBinLabel(9,"pTl1>20");
+  h_nEvent->GetXaxis()->SetBinLabel(10,"pTl2>10");
+  h_nEvent->GetXaxis()->SetBinLabel(11,"ghost free");
+  h_nEvent->GetXaxis()->SetBinLabel(12,"m4l>70");
   
   TH1F* h_nleptons = new TH1F("nleptons", "", 10, 0, 10);
   h.push_back(h_nleptons);
@@ -991,14 +987,12 @@ void monoHZZ4L::analysis(string inputFile,
       which = findZ2(dilepton);
       if ( which < 0 ) continue;
       h_nEvent->Fill(7.1, eventWeight);
-      
-      bool diboson_event = true;
 
       LHParticle Z2 = dilepton[which];
       LHParticle L3 = lepton[Z2.Daughters[0]];
       LHParticle L4 = lepton[Z2.Daughters[1]];
       assert((L3.PID+L4.PID)==0);
-      
+
       if ( DEBUG > 0 )
 	{
 	  cout << "==> Z2"
@@ -1009,7 +1003,42 @@ void monoHZZ4L::analysis(string inputFile,
 	       << endl << L4
 	       << endl;
 	}
+
+      // ----------------------------------------------------------
+      // CUT 8: pTl1 > 20 GeV
+      // ----------------------------------------------------------
+      vector<LHParticle> lep4;
+      lep4.push_back(L1);
+      lep4.push_back(L2);
+      lep4.push_back(L3);
+      lep4.push_back(L4);
+      sort(lep4.begin(), lep4.end());
       
+      if ( !(lep4[0].Pt() > 20) ) continue;
+      h_nEvent->Fill(8.1, eventWeight);
+
+      // ----------------------------------------------------------
+      // CUT 9: pTl2 > 10 GeV
+      // ----------------------------------------------------------
+      if ( !(lep4[1].Pt() > 10) ) continue;
+      h_nEvent->Fill(9.1, eventWeight);      
+
+      // ----------------------------------------------------------
+      // CUT 10: ghost removal;
+      // ----------------------------------------------------------
+      if ( !ghostFree(lep4) ) continue;
+      h_nEvent->Fill(10.1, eventWeight);      			 
+      
+      // ----------------------------------------------------------
+      // CUT 11: m4l > 70 GeV
+      // ----------------------------------------------------------
+      // compute 4-lepton 4-vector
+      LHParticle H = Z1 + Z2;
+      if ( !(H.M() > 70) ) continue;
+      h_nEvent->Fill(11.1, eventWeight);      			 
+
+
+            
       // number of events that pass selection criteria
       passed++;
       totalPassed += eventWeight;
@@ -1023,19 +1052,11 @@ void monoHZZ4L::analysis(string inputFile,
       h_PT[0]->Fill(L1.Pt(), eventWeight);
       h_PT[1]->Fill(L2.Pt(), eventWeight);
       h_PT[2]->Fill(L3.Pt(), eventWeight);
-      
-      LHParticle H;
-      if ( diboson_event )
-	{
-	  h_PT[3]->Fill(L4.Pt(), eventWeight);
-	  
-	  h_Z2mass->Fill(Z2.M(), eventWeight);
-	  
-	  // compute 4-lepton 4-vector
-	  H = Z1 + Z2;
-	  h_Hmass->Fill(H.M(), eventWeight);
-	  h_HmassLarge->Fill(H.M(), eventWeight);
-	}
+
+      h_PT[3]->Fill(L4.Pt(), eventWeight);	  
+      h_Z2mass->Fill(Z2.M(), eventWeight);
+      h_Hmass->Fill(H.M(), eventWeight);
+      h_HmassLarge->Fill(H.M(), eventWeight);
       
       // Missing transverse energy
       MissingET* met = static_cast<MissingET*>(branchMET->At(0));    
@@ -1072,11 +1093,8 @@ void monoHZZ4L::analysis(string inputFile,
       if ( genZ2 )
 	{
 	  // compute (Z2 - genZ2).M()
-	  if ( diboson_event )
-	    {
-	      TLorentzVector dZ2 = Z2 - *genZ2;
-	      h_dZ2->Fill(dZ2.M(), eventWeight);
-	    }
+	  TLorentzVector dZ2 = Z2 - *genZ2;
+	  h_dZ2->Fill(dZ2.M(), eventWeight);
 	}
       
       // ----------------------------------------------------------
@@ -1085,7 +1103,7 @@ void monoHZZ4L::analysis(string inputFile,
       evtTree.Clear();
       
       evtTree.weight = eventWeight;
-      if ( diboson_event ) evtTree.fstate = getFinalState(Z1, Z2);
+      evtTree.fstate = getFinalState(Z1, Z2);
       evtTree.njets  = (int)jet.size();
       evtTree.nleps  = (int)lepton.size();
       
@@ -1135,23 +1153,21 @@ void monoHZZ4L::analysis(string inputFile,
 	  evtTree.genl4eta  = genL4->Eta();
 	  evtTree.genl4phi  = genL4->Phi();    
 	}
+      
       evtTree.Z1pt   = Z1.Pt();
       evtTree.Z1eta  = Z1.Eta();
       evtTree.Z1phi  = Z1.Phi();
       evtTree.Z1mass = Z1.M();
       
-      if ( diboson_event )
-	{
-	  evtTree.Z2pt   = Z2.Pt();
-	  evtTree.Z2eta  = Z2.Eta();
-	  evtTree.Z2phi  = Z2.Phi();
-	  evtTree.Z2mass = Z2.M();
-	  
-	  evtTree.Hpt    = H.Pt();
-	  evtTree.Heta   = H.Eta();
-	  evtTree.Hphi   = H.Phi();
-	  evtTree.Hmass  = H.M();    
-	}
+      evtTree.Z2pt   = Z2.Pt();
+      evtTree.Z2eta  = Z2.Eta();
+      evtTree.Z2phi  = Z2.Phi();
+      evtTree.Z2mass = Z2.M();
+      
+      evtTree.Hpt    = H.Pt();
+      evtTree.Heta   = H.Eta();
+      evtTree.Hphi   = H.Phi();
+      evtTree.Hmass  = H.M();    
       
       evtTree.l1match= L1.ID;
       evtTree.l1PID  = L1.PID;
@@ -1170,16 +1186,13 @@ void monoHZZ4L::analysis(string inputFile,
       evtTree.l3pt   = L3.Pt();
       evtTree.l3eta  = L3.Eta();
       evtTree.l3phi  = L3.Phi();
-      
-      if ( diboson_event )
-	{
-	  evtTree.l4match= L4.ID;
-	  evtTree.l4PID  = L4.PID;    
-	  evtTree.l4pt   = L4.Pt();
-	  evtTree.l4eta  = L4.Eta();
-	  evtTree.l4phi  = L4.Phi();
-	}
-      
+
+      evtTree.l4match= L4.ID;
+      evtTree.l4PID  = L4.PID;    
+      evtTree.l4pt   = L4.Pt();
+      evtTree.l4eta  = L4.Eta();
+      evtTree.l4phi  = L4.Phi();
+  
       if ( jet.size() > 0 )
 	{
 	  evtTree.j1pt   = jet[0].Pt();
@@ -1209,31 +1222,29 @@ void monoHZZ4L::analysis(string inputFile,
       float costheta2=-2;
       float cosPhi=-2;
       float cosPhi1=-2;
-      if ( diboson_event )
-	{
-	  nic::computeMELAangles(L1, L1.PID,
-				 L2, L2.PID,
-				 L3, L3.PID,
-				 L4, L4.PID,
-				 costhetastar,
-				 costheta1,
-				 costheta2,
-				 cosPhi,
-				 cosPhi1);
+
+      nic::computeMELAangles(L1, L1.PID,
+			     L2, L2.PID,
+			     L3, L3.PID,
+			     L4, L4.PID,
+			     costhetastar,
+			     costheta1,
+			     costheta2,
+			     cosPhi,
+			     cosPhi1);
 	  
-	  evtTree.costhetastar = costhetastar;
-	  evtTree.costheta1    = costheta1;
-	  evtTree.costheta2    = costheta2;
-	  evtTree.cosPhi       = cosPhi;
-	  evtTree.cosPhi1      = cosPhi1;
-	  
-	  h_costhetastar->Fill(costhetastar, eventWeight);
-	  h_costheta1->Fill(costheta1, eventWeight);
-	  h_costheta2->Fill(costheta2, eventWeight);
-	  h_cosPhi->Fill(cosPhi, eventWeight);
-	  h_cosPhi1->Fill(cosPhi1, eventWeight);
-	}
+      evtTree.costhetastar = costhetastar;
+      evtTree.costheta1    = costheta1;
+      evtTree.costheta2    = costheta2;
+      evtTree.cosPhi       = cosPhi;
+      evtTree.cosPhi1      = cosPhi1;
       
+      h_costhetastar->Fill(costhetastar, eventWeight);
+      h_costheta1->Fill(costheta1, eventWeight);
+      h_costheta2->Fill(costheta2, eventWeight);
+      h_cosPhi->Fill(cosPhi, eventWeight);
+      h_cosPhi1->Fill(cosPhi1, eventWeight);
+  
       evtTree.Fill();
       
     } // END OF EVENT LOOP
@@ -1307,17 +1318,18 @@ void monoHZZ4L::analysis(string inputFile,
    // cut flow
    // -----------------------------------------------
    gStyle->SetOptStat(0);
-   
-   h_nEvent->Scale(1.0/summedWeight);
+
+   cout << endl << "cut flow" << endl;
    for(int i=0; i < h_nEvent->GetNbinsX(); i++)
      {
-       double f = h_nEvent->GetBinContent(i+1);
+       double c = h_nEvent->GetBinContent(i+1);
        char rec[80];
-       sprintf(rec, "%s:%6.3f",
-	       h_nEvent->GetXaxis()->GetBinLabel(i+1), f);
-       h_nEvent->GetXaxis()->SetBinLabel(i+1, rec);
+       sprintf(rec, "\t%-20s %10.3f",
+	       h_nEvent->GetXaxis()->GetBinLabel(i+1), c);
+       cout << rec << endl;
      }
-
+   
+   h_nEvent->Scale(1.0/summedWeight);
    h_nEvent->SetMaximum(1.e-3);
    h_nEvent->SetMaximum(1.1);
     
