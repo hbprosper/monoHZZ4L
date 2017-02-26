@@ -93,8 +93,10 @@ struct Shrub
   float	cosPhi1;
   float dRl1l2;
   float dRl3l4;
+  float dRllmin;
+  float dRljmin;
   float dRZ1Z2;
-  float dRljet;
+
 
   //------------------------------------------------------------------------
   Shrub()
@@ -210,8 +212,10 @@ struct Shrub
     tree->Branch("cosPhi1", 	&cosPhi1, 	"cosPhi1/F");
     tree->Branch("dRl1l2", 	&dRl1l2, 	"dRl1l2/F");
     tree->Branch("dRl3l4", 	&dRl3l4, 	"dRl3l4/F");
+    tree->Branch("dRllmin", 	&dRllmin, 	"dRllmin/F");
+    tree->Branch("dRljmin", 	&dRljmin, 	"dRljmin/F");    
     tree->Branch("dRZ1Z2", 	&dRZ1Z2, 	"dRZ1Z2/F");
-    tree->Branch("dRljet", 	&dRljet, 	"dRljet/F");
+
   }
   ~Shrub() { delete file; }
 
@@ -300,8 +304,10 @@ struct Shrub
     cosPhi1	= clearvalue;
     dRl1l2      = clearvalue;
     dRl3l4      = clearvalue;
+    dRllmin     = clearvalue;
+    dRljmin     = clearvalue;
     dRZ1Z2      = clearvalue;
-    dRljet      = clearvalue;
+
   }
   
   void Fill()

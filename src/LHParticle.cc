@@ -17,7 +17,7 @@ int LHParticle::s_UID=0;
 
 LHParticle::LHParticle()
   : TLorentzVector(),
-    UID(s_UID++),
+    UID(++s_UID),
     PID(0),
     ID(-1),
     Status(0),
@@ -32,7 +32,7 @@ LHParticle::LHParticle()
 LHParticle::LHParticle(int PID_, 
 		       double pt, double eta, double phi, double mass)
   : TLorentzVector(),
-    UID(s_UID++),
+    UID(++s_UID),
     PID(PID_),
     ID(-1),
     Status(0),
@@ -132,9 +132,13 @@ std::ostream& operator<<(std::ostream& os, const LHParticle& o)
       str += string(rec);
     }
 
+  string skip("keep");
+  if ( o.Skip ) skip = "skip";
+  
   char record[80];
-  sprintf(record, "%4d %4d %4d %-10s %8.2f %8.3f %8.3f %8.3f %s",
-	  o.UID, o.PID, o.ID, o.Name.c_str(), o.Pt(), o.Eta(), o.Phi(), o.M(),
+  sprintf(record, "%4d %4d %4s %-10s %8.2f %8.3f %8.3f %8.3f %s",
+	  o.UID, o.ID, skip.c_str(),
+	  o.Name.c_str(), o.Pt(), o.Eta(), o.Phi(), o.M(),
 	  str.c_str());
   os << record;
   return os;

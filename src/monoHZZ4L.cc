@@ -57,8 +57,44 @@ namespace {
   const int TAU      = 15;
   const int ZBOSON   = 23;
   const int HBOSON   = 25;
+
+  const double DRLJCUT = 0.4;
+  const double DRLLCUT = 0.3;
+  
   int  DEBUG = 0;
 };
+
+
+void
+listParticles(TClonesArray* particles)
+{
+  char record[256];
+  sprintf(record,"%4s %8s %-10s %8s %8s %8s %4s %4s %4s %4s %4s",
+	  "",   "PID", "name",
+	  "PT", "Eta", "Phi",
+	  "M1", "M2",
+	  "D1", "D2", "Stat");
+  cout << record << endl;
+  for(int i = 0; i < particles->GetEntriesFast(); i++)
+    {
+      GenParticle* p = static_cast<GenParticle*>(particles->At(i));
+      sprintf(record,"%4d %8d %-10s %8.2f %8.3f %8.3f %4d %4d %4d %4d %4d",
+	      i, p->PID, LHParticle::name(p->PID).c_str(),
+	      p->PT, p->Eta, p->Phi,
+	      p->M1, p->M2,
+	      p->D1, p->D2, p->Status);
+      cout << record << endl;
+    }
+}
+
+
+void
+listParticles(string title, vector<LHParticle>& particles)
+{
+  cout << title << endl;
+  for(size_t c=0; c < particles.size(); c++) cout << particles[c] << endl;
+}
+
 
 void copyLeptons(TClonesArray* electrons,
 		 TClonesArray* muons,
@@ -89,11 +125,7 @@ void copyLeptons(TClonesArray* electrons,
   // sort in descending order of pT
   sort(lepton.begin(), lepton.end());
   if ( DEBUG > 0 )
-    {
-      cout << "==> LEPTONS (before kinematic cuts)" << endl;
-      for(size_t c=0; c < lepton.size(); c++)
-	cout << lepton[c] << endl;
-    }  
+    listParticles("==> LEPTONS (before kinematic cuts)", lepton);
 }
 
 void copyJets(TClonesArray* branchJet,
@@ -110,11 +142,7 @@ void copyJets(TClonesArray* branchJet,
     }
   sort(jet.begin(), jet.end());
   if ( DEBUG > 0 )
-    {
-      cout << "==> JETS (before kinematic cuts)" << endl;
-      for(size_t c=0; c < jet.size(); c++)
-	cout << jet[c] << endl;
-    }  
+    listParticles("==> JETS (before kinematic cuts)", jet);      
 }
 
 double copyGenLeptons(std::vector<LHParticle*>& genlepton,
@@ -142,16 +170,16 @@ double copyGenLeptons(std::vector<LHParticle*>& genlepton,
   // sort in descending order of pT
   sort(lepton.begin(), lepton.end());
   if ( DEBUG > 0 )
-    {
-      cout << "==> LEPTONS (before kinematic cuts)" << endl;
-      for(size_t c=0; c < lepton.size(); c++)
-	cout << lepton[c] << endl;
-    }
+    listParticles("==> LEPTONS (before kinematic cuts)", lepton);
+
   return weight;
 }
 
 void purgeParticles(std::vector<LHParticle>& particles)
 {
+  if ( DEBUG > 0 )
+    listParticles("==> PRE-PRURGE", particles);
+  
   // remove particles to be Skipped
   int c = 0;
   for(size_t i = 0; i < particles.size(); i++)
@@ -161,6 +189,9 @@ void purgeParticles(std::vector<LHParticle>& particles)
       c++;
     }
   particles.resize(c);
+
+  if ( DEBUG > 0 )
+    listParticles("==> POST-PRURGE", particles);
 }
 
 void filterLeptons(std::vector<LHParticle>& lepton)
@@ -172,8 +203,7 @@ void filterLeptons(std::vector<LHParticle>& lepton)
   for(size_t i = 0; i < lepton.size(); i++)
     {
       LHParticle& p = lepton[i]; // get a reference not a copy
-      p.Skip = true;
-      
+
       // cuts differ for electrons and muons
       double PtCut;
       double EtaCut;
@@ -187,6 +217,8 @@ void filterLeptons(std::vector<LHParticle>& lepton)
 	  PtCut  = 7.0;
 	  EtaCut = 2.5;
 	}
+
+      p.Skip = true;
       
       if ( !(p.Pt() > PtCut) ) continue;
       if ( !(abs(p.Eta()) < EtaCut) ) continue;
@@ -197,8 +229,8 @@ void filterLeptons(std::vector<LHParticle>& lepton)
 }
 
 void isolateObjects(std::vector<LHParticle>& object1,
-		   std::vector<LHParticle>& object2,
-		   double dRcut=0.3)
+		    std::vector<LHParticle>& object2,
+		    double dRcut=0.3)
 {
   for(size_t i=0; i < object1.size(); i++)
     {
@@ -210,6 +242,8 @@ void isolateObjects(std::vector<LHParticle>& object1,
 	  double dR = nic::deltaR(object1[i].Eta(), object1[i].Phi(),
 				  object2[j].Eta(), object2[j].Phi());
 	  if ( dR > dRcut ) continue;
+
+	  // objects are closer than dR, so skip
 	  object1[i].Skip = true;
 	  object2[j].Skip = true;
 	}
@@ -223,35 +257,11 @@ void filterJets(std::vector<LHParticle>& jet)
   for(size_t i = 0; i < jet.size(); i++)
     {
       jet[i].Skip = true;
-      if ( ! (jet[i].Pt() > 30) ) continue;
-      if ( ! (abs(jet[i].Eta()) < 4.7) ) continue;
+      if ( !(jet[i].Pt() > 30) ) continue;
+      if ( !(abs(jet[i].Eta()) < 4.7) ) continue;
       jet[i].Skip = false;
     }
   purgeParticles(jet);  
-}
-
-
-
-void
-listParticles(TClonesArray* particles)
-{
-  char record[256];
-  sprintf(record,"%4s %8s %-10s %8s %8s %8s %4s %4s %4s %4s %4s",
-	  "",   "PID", "name",
-	  "PT", "Eta", "Phi",
-	  "M1", "M2",
-	  "D1", "D2", "Stat");
-  cout << record << endl;
-  for(int i = 0; i < particles->GetEntriesFast(); i++)
-    {
-      GenParticle* p = static_cast<GenParticle*>(particles->At(i));
-      sprintf(record,"%4d %8d %-10s %8.2f %8.3f %8.3f %4d %4d %4d %4d %4d",
-	      i, p->PID, LHParticle::name(p->PID).c_str(),
-	      p->PT, p->Eta, p->Phi,
-	      p->M1, p->M2,
-	      p->D1, p->D2, p->Status);
-      cout << record << endl;
-    }
 }
 
 
@@ -498,8 +508,13 @@ void monoHZZ4L::analysis(string inputFile,
   else
     cout << "\t== use GEN level leptons ==" << endl;
 
+  // lepton efficiency maps
   LeptonEfficiency* muonEff=0;
   LeptonEfficiency* elecEff=0;
+
+  // lepton/jet isolation cuts 
+  double dRllcut = DRLLCUT;
+  double dRljcut = DRLJCUT;
   
   if ( ! useRECO )
     {
@@ -559,10 +574,12 @@ void monoHZZ4L::analysis(string inputFile,
 	  inputFiles.push_back(infilename);
 	}
     }
-  for (size_t i=0; i < inputFiles.size(); i++){
-    chain->Add(inputFiles[i].c_str());
-    std::cout << "\t=> added input file " << inputFiles[i] << std::endl;
-  }
+  for (size_t i=0; i < inputFiles.size(); i++)
+    {
+      chain->Add(inputFiles[i].c_str());
+      std::cout << "\t=> added input file "
+		<< inputFiles[i] << std::endl;
+    }
 
   // -----------------------------------------
   // create A Delphes tree reader
@@ -687,14 +704,18 @@ void monoHZZ4L::analysis(string inputFile,
   TH1F* h_dRl3l4 = new TH1F("dRl3l4", "", 100,  0., 5.0);
   h.push_back(h_dRl3l4);
   h_dRl3l4->GetXaxis()->SetTitle("#Delta#font[12]{R}_{l3l4}");
+	      	      
+  TH1F* h_dRllmin = new TH1F("dRllmin", "", 100,  0., 5.0);
+  h.push_back(h_dRllmin);
+  h_dRllmin->GetXaxis()->SetTitle("min(#Delta#font[12]{R}_{ll})");
+
+  TH1F* h_dRljmin = new TH1F("dRljmin", "", 100,  0., 5.0);
+  h.push_back(h_dRljmin);
+  h_dRljmin->GetXaxis()->SetTitle("min(#Delta#font[12]{R}_{lj})");
 
   TH1F* h_dRZ1Z2 = new TH1F("dRZ1Z2", "", 100,  0., 5.0);
   h.push_back(h_dRZ1Z2);
   h_dRZ1Z2->GetXaxis()->SetTitle("#Delta#font[12]{R}_{Z1Z2}");
-	      	      
-  TH1F* h_dRljet = new TH1F("dRljet", "", 100,  0., 5.0);
-  h.push_back(h_dRljet);
-  h_dRljet->GetXaxis()->SetTitle("#Delta#font[12]{R}_{lj}");
   
   TH1F* h_maxmatch = new TH1F("maxmatch", "", 10,  0., 10);
   h.push_back(h_maxmatch);
@@ -735,17 +756,6 @@ void monoHZZ4L::analysis(string inputFile,
   // ========================================================================
   // EVENT LOOP
   // ========================================================================  
-
-  cout << endl << "\t=> begin event loop" << endl;
-    
-  long int numberOfEntries = treeReader->GetEntries();
-
-  //numberOfEntries = 100;
-  
-  if ( numberEvents > 0 ) numberOfEntries = numberEvents;
-  std::cout << "\t=> analyzing " << numberOfEntries <<" events" << std::endl;
-
-  // -----------------------------------------
   // cross sections @ 13 TeV
   // https://twiki.cern.ch/twiki/bin/view/LHCPhysics/CrossSections#
   // Higgs_cross_sections_and_decay_b
@@ -763,7 +773,17 @@ void monoHZZ4L::analysis(string inputFile,
   // BR(H->ZZ->4L)         = 2.760e-4 (L=e,mu,tau)
   //
   // BR(Z->l+l-)           = 3.3658e-2
-  // -----------------------------------------
+  // ========================================================================
+  
+  cout << endl << "\t=> begin event loop" << endl;
+    
+  long int numberOfEntries = treeReader->GetEntries();
+  //numberOfEntries = 100;
+  
+  if ( numberEvents > 0 ) numberOfEntries = numberEvents;
+  std::cout << "\t=> analyzing " << numberOfEntries
+	    <<" events" << std::endl;
+
   double eventCount  = xsection * luminosity;
   double eventWeightOrig = eventCount / numberOfEntries;
   double eventWeight = eventWeightOrig;
@@ -823,7 +843,10 @@ void monoHZZ4L::analysis(string inputFile,
       // first bin of h_nEvent contains the total event weight
       // -----------------------------------------------------
       h_nEvent->Fill(0.1, eventWeight);
-    
+
+      // Remember to reset unique ID (UID) of particles
+      LHParticle::s_UID = 0;
+      
       // -----------------------------------------------------
       // get hard scatter event
       // the Z bosons are ordered in descending order of mass
@@ -895,9 +918,9 @@ void monoHZZ4L::analysis(string inputFile,
       // copy data to standard Les Houches objects and
       // apply lepton filter
       // -----------------------------------------------------
-      // Remember to reset unique ID (UID) of particles
-      LHParticle::s_UID = 0;
-
+      if ( DEBUG > 0 )
+	cout << "BEGIN COPY OBJECTS" << endl;
+      
       // LEPTONS
       vector<LHParticle> lepton;
       if ( useRECO )
@@ -906,19 +929,17 @@ void monoHZZ4L::analysis(string inputFile,
 	}
       else
 	{
-	  if ( DEBUG > 0 )
-	    cout << "==> get GEN leptons " << endl;
-	  
 	  double effWeight = copyGenLeptons(genL, lepton, *muonEff, *elecEff);
 	  if ( DEBUG > 0 )
 	    cout << "==> lepton efficiency weight: " << effWeight << endl;
-	  
 	  eventWeight *= effWeight;
 	}
 
       // JETS
       vector<LHParticle> jet;
       copyJets(branchJet, jet);
+      if ( DEBUG > 0 )
+	cout << "END COPY OBJECTS" << endl << endl;
       
       // ==========================================================
       // BEGIN ANALYSIS
@@ -942,24 +963,77 @@ void monoHZZ4L::analysis(string inputFile,
       // isolate leptons from jets (dR > 0.4)
       // isolate leptons from each other (dR > 0.3)
       // ----------------------------------------------------------
-      isolateObjects(lepton, jet, 0.4);
-      isolateObjects(lepton, lepton, 0.3);      
+      isolateObjects(lepton, jet, dRljcut);
+      isolateObjects(lepton, lepton, dRllcut);      
       if ( !(lepton.size() > 1) ) continue;
       h_nEvent->Fill(2.1, eventWeight);
 
       // ----------------------------------------------------------
-      // histogram DeltaR between each lepton and jet
-      double dRljet = 1.e4;
+      // histogram min(DeltaR) between each lepton and jet
+      int index=-1;
+      int jndex=-1;
+      double dRljmin = 1.e4;
       for(size_t i=0; i < lepton.size(); i++)
 	{
 	  for(size_t j=0; j < jet.size(); j++)
 	    {
 	      double dR = nic::deltaR(lepton[i].Eta(), lepton[i].Phi(),
 				      jet[j].Eta(), jet[j].Phi());
-	      if ( dR < dRljet ) dRljet = dR;
+	      if ( dR < dRljmin )
+		{
+		  dRljmin = dR;
+		  index = i;
+		  jndex = j;
+		}
 	    }
+	}
+      h_dRljmin->Fill(dRljmin, eventWeight);
+
+      if ( dRljmin < dRljcut )
+	{
+	  // This should never happen!!
+	  cout << "*** entry: " << entry << endl
+	       << "\tlepton(eta): " << lepton[index].Eta()
+	       << "\tlepton(phi): " << lepton[index].Phi()
+	       << endl
+	       << "\tjet(eta): " << jet[jndex].Eta()
+	       << "\tjet(phi): " << jet[jndex].Phi()
+	       << endl
+	       << "\tdR = " << dRljmin
+	       << endl;
+	}
+      
+      // histogram min(DeltaR) between leptons
+      double dRllmin = 1.e4;
+      for(size_t i=0; i < lepton.size(); i++)
+	{
+	  for(size_t j=i+1; j < lepton.size(); j++)
+	    {
+	      double dR = nic::deltaR(lepton[i].Eta(), lepton[i].Phi(),
+				      lepton[j].Eta(), lepton[j].Phi());
+	      if ( dR < dRllmin )
+		{
+		  dRllmin = dR;
+		  index = i;
+		  jndex = j;		  
+		}
+	    }
+	}
+      h_dRllmin->Fill(dRllmin, eventWeight);
+      if ( dRllmin < dRllcut )
+       {
+	 // This should never happen!!
+	  cout << "*** entry: " << entry << endl
+	       << "\tlepton(eta): " << lepton[index].Eta()
+	       << "  lepton(phi): " << lepton[index].Phi()
+	       << endl
+	       << "\tlepton(eta): " << lepton[jndex].Eta()
+	       << "  lepton(phi): " << lepton[jndex].Phi()
+	       << endl
+	       << "\tdR = " << dRllmin
+	       << endl;
 	}      
-      if ( dRljet < 1.e4 ) h_dRljet->Fill(dRljet, eventWeight);
+
       
       // ----------------------------------------------------------
       // Match gen leptons to reco leptons
@@ -1277,11 +1351,12 @@ void monoHZZ4L::analysis(string inputFile,
       h_cosPhi->Fill(cosPhi, eventWeight);
       h_cosPhi1->Fill(cosPhi1, eventWeight);
 
-      evtTree.dRl1l2 = dRl1l2;
-      evtTree.dRl3l4 = dRl3l4;
-      evtTree.dRZ1Z2 = dRZ1Z2;
-      evtTree.dRljet = dRljet;
-      
+      evtTree.dRl1l2  = dRl1l2;
+      evtTree.dRl3l4  = dRl3l4;
+      evtTree.dRllmin = dRllmin;
+      evtTree.dRljmin = dRljmin;
+      evtTree.dRZ1Z2  = dRZ1Z2;
+
       evtTree.Fill();
       
     } // END OF EVENT LOOP
@@ -1316,12 +1391,13 @@ void monoHZZ4L::analysis(string inputFile,
   cgenPT->Print(filename, "png");
   
   // -----------------------------------------------------------
-  TCanvas* cdR = new TCanvas("dR", "dR", 10, 10, 800, 800);
-  cdR->Divide(2, 2);
+  TCanvas* cdR = new TCanvas("dR", "dR", 10, 10, 900, 600);
+  cdR->Divide(3, 2);
   cdR->cd(1); h_dRl1l2->Draw("hist");
   cdR->cd(2); h_dRl3l4->Draw("hist");
-  cdR->cd(3); h_dRZ1Z2->Draw("hist");
-  cdR->cd(4); h_dRljet->Draw("hist");
+  cdR->cd(3); h_dRllmin->Draw("hist");
+  cdR->cd(4); h_dRljmin->Draw("hist");
+  cdR->cd(5); h_dRZ1Z2->Draw("hist");
   cdR->Update();
   sprintf(filename, "plots/%s_dR.png", namen.c_str());
   cdR->Print(filename, "png");
