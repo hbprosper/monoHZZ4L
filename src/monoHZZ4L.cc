@@ -12,7 +12,7 @@
 // Initial      3970         51.5      1.79e+14  52.57
 // lepton cuts   116          7.02     3740       4.53
 // Z1             93          5.94     2760       4.28
-// Z2             21          2.91        1.4     1.45
+// Z2             21          2.91      1.4       1.45
 // ---------------------------------------------------------------------------
 #include <algorithm>
 #include <iostream>
@@ -66,45 +66,56 @@ void copyLeptons(TClonesArray* electrons,
 {
   if ( electrons )
     {
-      if ( DEBUG > 0 )
-	cout << "==> number of electrons " << electrons->GetEntriesFast()
-	     << endl;
-      
       for(int i=0; i < electrons->GetEntriesFast(); i++)
 	{
 	  Electron* p = static_cast<Electron*>(electrons->At(i));
 	  int PID = -ELECTRON * p->Charge;
 	  LHParticle q(PID, p->PT, p->Eta, p->Phi);
 	  lepton.push_back(q);
-	  
-	  if ( DEBUG > 2 )
-	    cout << i << "\t" << lepton.back() << endl;	  
 	}
     }
   
  if ( muons )
    {
-      if ( DEBUG > 0 )
-	cout << "==> number of muons " << muons->GetEntriesFast()
-	     << endl;
-          
      for(int i=0; i < muons->GetEntriesFast(); i++)
        {
 	 Muon* p = static_cast<Muon*>(muons->At(i));
 	 int PID = -MUON * p->Charge;
 	 LHParticle q(PID, p->PT, p->Eta, p->Phi);
 	 lepton.push_back(q);
-	 
-	 if ( DEBUG > 2 )
-	   cout << i << "\t" << lepton.back() << endl;
-
        }
    }
  
   // sort in descending order of pT
   sort(lepton.begin(), lepton.end());
+  if ( DEBUG > 0 )
+    {
+      cout << "==> LEPTONS (before kinematic cuts)" << endl;
+      for(size_t c=0; c < lepton.size(); c++)
+	cout << lepton[c] << endl;
+    }  
 }
 
+void copyJets(TClonesArray* branchJet,
+	      std::vector<LHParticle>& jet)
+{
+  for(int i = 0; i < branchJet->GetEntriesFast(); i++)
+    {
+      Jet* j = static_cast<Jet*>(branchJet->At(i));    
+      jet.push_back(LHParticle(81,    // ID for jet
+			       j->PT,
+			       j->Eta,
+			       j->Phi,
+			       j->Mass));
+    }
+  sort(jet.begin(), jet.end());
+  if ( DEBUG > 0 )
+    {
+      cout << "==> JETS (before kinematic cuts)" << endl;
+      for(size_t c=0; c < jet.size(); c++)
+	cout << jet[c] << endl;
+    }  
+}
 
 double copyGenLeptons(std::vector<LHParticle*>& genlepton,
 		      std::vector<LHParticle>& lepton,
@@ -132,7 +143,7 @@ double copyGenLeptons(std::vector<LHParticle*>& genlepton,
   sort(lepton.begin(), lepton.end());
   if ( DEBUG > 0 )
     {
-      cout << "LEPTONS" << endl;
+      cout << "==> LEPTONS (before kinematic cuts)" << endl;
       for(size_t c=0; c < lepton.size(); c++)
 	cout << lepton[c] << endl;
     }
@@ -141,7 +152,7 @@ double copyGenLeptons(std::vector<LHParticle*>& genlepton,
 
 void purgeParticles(std::vector<LHParticle>& particles)
 {
-  // remove particles flagged as bad
+  // remove particles to be Skipped
   int c = 0;
   for(size_t i = 0; i < particles.size(); i++)
     {
@@ -182,10 +193,43 @@ void filterLeptons(std::vector<LHParticle>& lepton)
       
       p.Skip = false;
     }
-
-  // purge out-of-acceptance leptons from list of leptons
   purgeParticles(lepton);
 }
+
+void isolateObjects(std::vector<LHParticle>& object1,
+		   std::vector<LHParticle>& object2,
+		   double dRcut=0.3)
+{
+  for(size_t i=0; i < object1.size(); i++)
+    {
+      for(size_t j=0; j < object2.size(); j++)
+	{
+	  // skip identical objects
+	  if ( object1[i].UID == object2[j].UID ) continue;
+	  
+	  double dR = nic::deltaR(object1[i].Eta(), object1[i].Phi(),
+				  object2[j].Eta(), object2[j].Phi());
+	  if ( dR > dRcut ) continue;
+	  object1[i].Skip = true;
+	  object2[j].Skip = true;
+	}
+    }
+  purgeParticles(object1);
+  purgeParticles(object2);
+}
+
+void filterJets(std::vector<LHParticle>& jet)
+{
+  for(size_t i = 0; i < jet.size(); i++)
+    {
+      jet[i].Skip = true;
+      if ( ! (jet[i].Pt() > 30) ) continue;
+      if ( ! (abs(jet[i].Eta()) < 4.7) ) continue;
+      jet[i].Skip = false;
+    }
+  purgeParticles(jet);  
+}
+
 
 
 void
@@ -261,8 +305,8 @@ getBosons(vector<LHParticle>&  particles,
 	    }
 	  }
       }
-  assert(genZ.size()>1);
-  assert(genL.size()>3);
+  //assert(genZ.size()>1);
+  //assert(genL.size()>3);
   return H;
 }
 
@@ -296,6 +340,9 @@ matchObjects(vector<LHParticle>&  r,
 void 
 findDileptons(vector<LHParticle>& lepton, vector<LHParticle>& dilepton)
 {
+  // Find opposite sign, same flavore (OSSF) dileptons with mass
+  // in range (12, 120) GeV.
+  
   dilepton.clear();
   
   // create opposite-sign, same-flavor dileptons
@@ -310,17 +357,18 @@ findDileptons(vector<LHParticle>& lepton, vector<LHParticle>& dilepton)
 	  // require same flavor opposite sign
 	  if ( !( (pk.PID + pj.PID)==0) ) continue;
 
-	  // require 12 < m(ll) < 120 GeV
-	  LHParticle ll  = pk + pj;
+	  // we have same flavor opposite sign dileptons
+	  
+	  LHParticle ll = pk + pj;
 	  if ( !(ll.M() > 12) )  continue;
 	  if ( !(ll.M() < 120) ) continue;
-	  
-	  // we have same flavor opposite sign dileptons
-	  // set constituents of dilepton
+
+	  // set flavor of dilepton	  
 	  ll.PID  = abs(pk.PID);
-	  ll.Skip = false;
-	  
-	  // set leptons so that higher pT
+	  ll.Skip = false;	  
+
+	  // set constituents of dilepton
+	  // so that higher pT
 	  // lepton comes first
 	  if (pk.Pt() > pj.Pt())
 	    {
@@ -335,6 +383,8 @@ findDileptons(vector<LHParticle>& lepton, vector<LHParticle>& dilepton)
 	  dilepton.push_back(ll);
 	}
     }
+  // sort in descending pT
+  sort(dilepton.begin(), dilepton.end());
   return;
 }
 
@@ -343,7 +393,7 @@ purgeDileptons(vector<LHParticle>& dilepton, LHParticle& Z)
 {
   if ( dilepton.size() < 1 ) return;
 
-  // purge dileptons that share a lepton with Z candidate
+  // purge dileptons that share a lepton with given Z candidate
   int j1 = Z.Daughters[0]; // higher pT lepton
   int j2 = Z.Daughters[1]; // lower pT lepton
   for(size_t c=0; c < dilepton.size(); c++)
@@ -380,7 +430,6 @@ int
 findZ1(vector<LHParticle>& dilepton)
 {
   // Find dilepton of correct flavor closest to the Z pole mass
-  // and with mass > 40 GeV
   // Note: findDileptons orders the dileptons in descending pT
   
   int which =-1;
@@ -399,10 +448,7 @@ findZ1(vector<LHParticle>& dilepton)
 	  smallest = dmass;
 	}
     }
-  if ( which < 0 ) return which;
-
-  if ( dilepton[which].M() < 40 ) return -1;
-  
+  if ( which < 0 ) return -1;
   dilepton[which].Name = "Z1";
   return which;  
 }
@@ -417,7 +463,7 @@ findZ2(vector<LHParticle>& dilepton)
 }
 
 
-bool ghostFree(vector<LHParticle>& lepton)
+bool ghostFree(vector<LHParticle>& lepton, double dRcut=0.02)
 {
   for(size_t i = 0; i < lepton.size(); i++)
     {
@@ -428,12 +474,12 @@ bool ghostFree(vector<LHParticle>& lepton)
 
 	  double dR = nic::deltaR(pi.Eta(), pi.Phi(),
 				  pj.Eta(), pj.Phi());
-	  // ghost removal
-	  if ( dR < 0.02 ) return false;
+	  if ( dR < dRcut ) return false;
 	}
     }
   return true;
 }
+
 // ---------------------------------------------------------------------------
 // inputFile    input file (with .root extension) or a filelist
 // numberEvents obvious, no?!
@@ -466,20 +512,7 @@ void monoHZZ4L::analysis(string inputFile,
       elecEff = new LeptonEfficiency("egammaEffi.txt_EGM2D.root",
 				     "EGamma_EffMC2D");
     }
-  
-  // -----------------------------------------
-  // Objects
-  //  muons  - PT > 5 GeV
-  //           |Eta| < 2.4
-  //
-  //  muons  - PT > 7 GeV
-  //           |Eta| < 2.7
-  //           relisol < 0.4
-  //
-  //  Z1     - min({mZ - Zmass})
-  //           mZ1 > 40 GeV
-  //
-  // -----------------------------------------
+
   // try to load libDelphes
   try
     {
@@ -490,13 +523,15 @@ void monoHZZ4L::analysis(string inputFile,
       nic::ciao("can't load libDelphes");
     }
 
+  // name of output ntuple
   string namen = nic::nameonly(inputFile);
-  namen = nic::replace(namen, "pp13TeV_", "ntuple_");
+  namen = nic::replace(namen, "pp13TeV_", "");
+  namen = string("ntuple_") + namen;
   
   // make sure plots and histos directories exist
   nic::shell("mkdir -p plots; mkdir -p histos");
   
-  // create empty root file for analysis results
+  // create empty root file for plots
   char filename[256];
   sprintf(filename, "histos/histos_%s.root", namen.c_str());
   TFile* theFile = new TFile(filename, "RECREATE");
@@ -552,18 +587,16 @@ void monoHZZ4L::analysis(string inputFile,
   vector<TH1F*> h;
   
   cout << endl << "\t=> initialize histograms" << endl;
-  TH1F* h_nEvent = new TH1F("h_nEvent", "Cut flow", 9, 0, 9);
+  TH1F* h_nEvent = new TH1F("h_nEvent", "Cut Flow", 7, 0, 7);
   h.push_back(h_nEvent);
   h_nEvent->Sumw2();
   h_nEvent->GetXaxis()->SetBinLabel(1,"no cuts");
-  h_nEvent->GetXaxis()->SetBinLabel(2,"lepton >= 4");
-  h_nEvent->GetXaxis()->SetBinLabel(3,"dilepton >= 1");
+  h_nEvent->GetXaxis()->SetBinLabel(2,"leptons > 1");
+  h_nEvent->GetXaxis()->SetBinLabel(3,"leptons(dR>0.3) > 1");
   h_nEvent->GetXaxis()->SetBinLabel(4,"Z1");
-  h_nEvent->GetXaxis()->SetBinLabel(5,"dilepton >= 2");
-  h_nEvent->GetXaxis()->SetBinLabel(6,"Z2");
-  h_nEvent->GetXaxis()->SetBinLabel(7,"pTl1 > 20");
-  h_nEvent->GetXaxis()->SetBinLabel(8,"pTl2 > 10");
-  h_nEvent->GetXaxis()->SetBinLabel(9,"m4l > 70");
+  h_nEvent->GetXaxis()->SetBinLabel(5,"Z2");
+  h_nEvent->GetXaxis()->SetBinLabel(6,"mZ1 > 40");
+  h_nEvent->GetXaxis()->SetBinLabel(7,"m4l > 70");
   
   TH1F* h_nleptons = new TH1F("nleptons", "", 10, 0, 10);
   h.push_back(h_nleptons);
@@ -642,11 +675,27 @@ void monoHZZ4L::analysis(string inputFile,
   h.push_back(h_dZ2);
   h_dZ2->GetXaxis()->SetTitle("#font[12]{m}_{Z2(gen)-Z2(reco)} (GeV)");
 
-  TH1F* h_dRlepton = new TH1F("dRlepton", "", 100,  0., 0.5);
-  h.push_back(h_dRlepton);
-  h_dRlepton->GetXaxis()->SetTitle("#Delta#font[12]{R}"
-				   "(#font[12]{l}, #font[12]{l_{gen}}");  
+  TH1F* h_dRllgen = new TH1F("dRllgen", "", 100,  0., 0.001);
+  h.push_back(h_dRllgen);
+  h_dRllgen->GetXaxis()->SetTitle("#Delta#font[12]{R}"
+				   "(#font[12]{l}, #font[12]{l_{gen}}");
 
+  TH1F* h_dRl1l2 = new TH1F("dRl1l2", "", 100,  0., 5.0);
+  h.push_back(h_dRl1l2);
+  h_dRl1l2->GetXaxis()->SetTitle("#Delta#font[12]{R}_{l1l2}");
+
+  TH1F* h_dRl3l4 = new TH1F("dRl3l4", "", 100,  0., 5.0);
+  h.push_back(h_dRl3l4);
+  h_dRl3l4->GetXaxis()->SetTitle("#Delta#font[12]{R}_{l3l4}");
+
+  TH1F* h_dRZ1Z2 = new TH1F("dRZ1Z2", "", 100,  0., 5.0);
+  h.push_back(h_dRZ1Z2);
+  h_dRZ1Z2->GetXaxis()->SetTitle("#Delta#font[12]{R}_{Z1Z2}");
+	      	      
+  TH1F* h_dRljet = new TH1F("dRljet", "", 100,  0., 5.0);
+  h.push_back(h_dRljet);
+  h_dRljet->GetXaxis()->SetTitle("#Delta#font[12]{R}_{lj}");
+  
   TH1F* h_maxmatch = new TH1F("maxmatch", "", 10,  0., 10);
   h.push_back(h_maxmatch);
   h_maxmatch->GetXaxis()->SetTitle("max[match-index]");
@@ -740,7 +789,9 @@ void monoHZZ4L::analysis(string inputFile,
   int passed = 0;
   double totalPassed = 0.0;
   double totalPassedUnc = 0.0;
-  
+
+  // object to extract hard scattering event from
+  // Delphes
   HardScatter hardscatter(branchParticle);
 
   // -----------------------------------------
@@ -749,11 +800,9 @@ void monoHZZ4L::analysis(string inputFile,
   for(Int_t entry = 0; entry < numberOfEntries; entry++)
     {
       // remember to reset event weight to its original value
-      
       eventWeight = eventWeightOrig;
       
       bool printMe = entry % 10000 == 0;
-      
       if ( printMe )
 	cout << "\t=> processing event "
 	     << entry
@@ -773,7 +822,6 @@ void monoHZZ4L::analysis(string inputFile,
       // -----------------------------------------------------
       // first bin of h_nEvent contains the total event weight
       // -----------------------------------------------------
-
       h_nEvent->Fill(0.1, eventWeight);
     
       // -----------------------------------------------------
@@ -847,7 +895,10 @@ void monoHZZ4L::analysis(string inputFile,
       // copy data to standard Les Houches objects and
       // apply lepton filter
       // -----------------------------------------------------
-      LHParticle::s_UID = 0; // reset unique ID (UID) 
+      // Remember to reset unique ID (UID) of particles
+      LHParticle::s_UID = 0;
+
+      // LEPTONS
       vector<LHParticle> lepton;
       if ( useRECO )
 	{
@@ -865,33 +916,63 @@ void monoHZZ4L::analysis(string inputFile,
 	  eventWeight *= effWeight;
 	}
 
-      // apply lepton filter
+      // JETS
+      vector<LHParticle> jet;
+      copyJets(branchJet, jet);
+      
+      // ==========================================================
+      // BEGIN ANALYSIS
+      // ==========================================================
+      
+      // apply lepton and jet kinematic cuts
       filterLeptons(lepton);
-      
-      int nleptons = (int)lepton.size();    
-      h_nleptons->Fill(nleptons);
-      
-      if ( DEBUG > 0 )
-	cout << "==> number of selected leptons: "
-	     << lepton.size() << endl;
+           
+      // apply jet filter
+      filterJets(jet);
 
       // ----------------------------------------------------------
-      // CUT 1: number of leptons >= 4
+      // histogram DeltaR between each lepton and jet
+      double dRljet = 1.e4;
+      for(size_t i=0; i < lepton.size(); i++)
+	{
+	  for(size_t j=0; j < jet.size(); j++)
+	    {
+	      double dR = nic::deltaR(lepton[i].Eta(), lepton[i].Phi(),
+				      jet[j].Eta(), jet[j].Phi());
+	      if ( dR < dRljet ) dRljet = dR;
+	    }
+	}      
+      if ( dRljet < 1.e4 ) h_dRljet->Fill(dRljet, eventWeight);
+      
       // ----------------------------------------------------------
-      if ( !(lepton.size() > 3) )  continue;
+      // CUT 1: number of leptons > 1
+      // ----------------------------------------------------------
+      if ( !(lepton.size() > 1) ) continue;
       h_nEvent->Fill(1.1, eventWeight);
 
-
+      // ----------------------------------------------------------
+      // CUT 2: number of isolated leptons > 1
+      // ----------------------------------------------------------
+      // isolate leptons from jets (dR > 0.4)
+      // isolate leptons from each other (dR > 0.3)
+      // ----------------------------------------------------------
+      isolateObjects(lepton, jet, 0.4);
+      isolateObjects(lepton, lepton, 0.3);      
+      if ( !(lepton.size() > 1) ) continue;
+      h_nEvent->Fill(2.1, eventWeight);
+ 
+      
+      // ----------------------------------------------------------
       // Match gen leptons to reco leptons
       nic::Match match;
       if ( genL.size() > 0 )
 	matchObjects(lepton, genL, match);
       
-      // histogram dR
+      // histogram dR(l, gen-l)
       for(size_t c=0; c < match.order.size(); c++)
 	{
 	  float dR = match.order[c].first;
-	  h_dRlepton->Fill(dR);
+	  h_dRllgen->Fill(dR);
 	}
       
       // ID < 0 if no match
@@ -906,37 +987,36 @@ void monoHZZ4L::analysis(string inputFile,
       h_maxmatch->Fill(maxii);
       h_nummatch->Fill(nmatch);
       
-      // ----------------------------------------------------------
-      // CUT 2: number of (opposite-sign, same-flavor dileptons
-      //        with 12 < mass < 120 GeV) > 0
-      // ----------------------------------------------------------
-      vector<LHParticle> dilepton;
-      findDileptons(lepton, dilepton);
-      if ( !(dilepton.size() > 0) )  continue;
-      h_nEvent->Fill(2.1, eventWeight);
+      if ( DEBUG > 0 )
+	cout << "==> number of selected leptons: "
+	     << lepton.size() << endl;
+
+      h_njets->Fill(jet.size(), eventWeight);
+      h_nleptons->Fill(lepton.size());
       
+      // ----------------------------------------------------------
+      // CUT 3: require Z1
+      // ----------------------------------------------------------
+      // find OSSF dileptons with 12 < mll < 120 GeV
+      vector<LHParticle> dilepton;
+      findDileptons(lepton, dilepton);      
       if ( DEBUG > 0 )
 	{
-	  cout << "==> Dileptons"
-	       << endl;
+	  cout << "==> DILEPTONS" << endl;
 	  for (size_t c=0; c < dilepton.size(); c++)
 	    cout << dilepton[c] << endl;
 	}
-      
-      // ----------------------------------------------------------
-      // CUT 3: find Z1 with mass > 40 GeV
-      // ----------------------------------------------------------
+
       // find dilepton closest to Z pole mass
       int which = findZ1(dilepton);
-      if ( which < 0 ) continue;    
-      h_nEvent->Fill(3.1, eventWeight);
+      if ( which < 0 ) continue;
+      h_nEvent->Fill(3.1, eventWeight);      
       
       // cache Z1 and associated leptons
       LHParticle Z1 = dilepton[which];
       LHParticle L1 = lepton[Z1.Daughters[0]];
       LHParticle L2 = lepton[Z1.Daughters[1]];
       assert((L1.PID+L2.PID)==0);
-      
       if ( DEBUG > 0 )
 	{
 	  cout << "==> Z1"
@@ -949,13 +1029,10 @@ void monoHZZ4L::analysis(string inputFile,
 	}
        
       // ----------------------------------------------------------
-      // CUT 4: find other dileptons
+      // CUT 4: require Z2
       // ----------------------------------------------------------
       // purge dileptons that share a lepton with Z1
-      purgeDileptons(dilepton, Z1);    
-      if ( !(dilepton.size() > 0) )  continue;
-      h_nEvent->Fill(4.1, eventWeight);
-      
+      purgeDileptons(dilepton, Z1);          
       if ( DEBUG > 0 )
 	{
 	  cout << "==> Purged Dileptons"
@@ -964,18 +1041,16 @@ void monoHZZ4L::analysis(string inputFile,
 	    cout << dilepton[c] << endl;
 	}
       
-      // ----------------------------------------------------------
-      // CUT 5: find Z2
-      // ----------------------------------------------------------
+      // find a 2nd Z candidate (choose the highest pT)
       which = findZ2(dilepton);
       if ( which < 0 ) continue;
-      h_nEvent->Fill(5.1, eventWeight);
-
+      h_nEvent->Fill(4.1, eventWeight);
+      
+      // cache Z2 and associated leptons
       LHParticle Z2 = dilepton[which];
       LHParticle L3 = lepton[Z2.Daughters[0]];
       LHParticle L4 = lepton[Z2.Daughters[1]];
       assert((L3.PID+L4.PID)==0);
-
       if ( DEBUG > 0 )
 	{
 	  cout << "==> Z2"
@@ -987,32 +1062,29 @@ void monoHZZ4L::analysis(string inputFile,
 	       << endl;
 	}
 
-      // ----------------------------------------------------------
-      // CUT 6: pTl1 > 20 GeV
-      // ----------------------------------------------------------
-      vector<LHParticle> lep4;
-      lep4.push_back(L1);
-      lep4.push_back(L2);
-      lep4.push_back(L3);
-      lep4.push_back(L4);
-      sort(lep4.begin(), lep4.end());
-      
-      if ( !(lep4[0].Pt() > 20) ) continue;
-      h_nEvent->Fill(6.1, eventWeight);
+      // histogram deltaR between L1, L2 and L3, L4 and Z1, Z2
+      double dRl1l2 = nic::deltaR(L1.Eta(), L1.Phi(), L2.Eta(), L2.Phi());
+      h_dRl1l2->Fill(dRl1l2, eventWeight);
 
-      // ----------------------------------------------------------
-      // CUT 7: pTl2 > 10 GeV
-      // ----------------------------------------------------------
-      if ( !(lep4[1].Pt() > 10) ) continue;
-      h_nEvent->Fill(7.1, eventWeight);      
+      double dRl3l4 = nic::deltaR(L3.Eta(), L3.Phi(), L4.Eta(), L4.Phi());
+      h_dRl3l4->Fill(dRl3l4, eventWeight);      
+
+      double dRZ1Z2 = nic::deltaR(Z1.Eta(), Z1.Phi(), Z2.Eta(), Z2.Phi());
+      h_dRZ1Z2->Fill(dRZ1Z2, eventWeight);
       
       // ----------------------------------------------------------
-      // CUT 8: m4l > 70 GeV
+      // CUT 5: mZ1 > 40 GeV
+      // ----------------------------------------------------------
+      if ( !(Z1.M() > 40) ) continue;
+      h_nEvent->Fill(5.1, eventWeight);
+ 
+      // ----------------------------------------------------------
+      // CUT 6: m4l > 70 GeV
       // ----------------------------------------------------------
       // compute 4-lepton 4-vector
       LHParticle H = Z1 + Z2;
       if ( !(H.M() > 70) ) continue;
-      h_nEvent->Fill(8.1, eventWeight);      			 
+      h_nEvent->Fill(6.1, eventWeight);      			 
 
 
             
@@ -1029,7 +1101,6 @@ void monoHZZ4L::analysis(string inputFile,
       h_PT[0]->Fill(L1.Pt(), eventWeight);
       h_PT[1]->Fill(L2.Pt(), eventWeight);
       h_PT[2]->Fill(L3.Pt(), eventWeight);
-
       h_PT[3]->Fill(L4.Pt(), eventWeight);	  
       h_Z2mass->Fill(Z2.M(), eventWeight);
       h_Hmass->Fill(H.M(), eventWeight);
@@ -1039,24 +1110,9 @@ void monoHZZ4L::analysis(string inputFile,
       MissingET* met = static_cast<MissingET*>(branchMET->At(0));    
       h_MET->Fill(met->MET, eventWeight);
       
-      // store jet info
+      // store HT
       float HT = 0;
-      vector<LHParticle> jet;
-      for(int i = 0; i < branchJet->GetEntriesFast(); i++)
-	{
-	  Jet* j = static_cast<Jet*>(branchJet->At(i));    
-	  if ( ! (j->PT > 30) ) continue;
-	  if ( ! (abs(j->Eta) < 4.7) ) continue;
-	  jet.push_back(LHParticle(81,    // ID for jet
-				   j->PT,
-				   j->Eta,
-				   j->Phi,
-				   j->Mass));
-	  HT += j->PT;
-	}
-      sort(jet.begin(), jet.end());
-      
-      h_njets->Fill(jet.size(), eventWeight);
+      for(size_t i = 0; i < jet.size(); i++) HT += jet[i].Pt();
       
       if ( genZ1 )
 	{
@@ -1221,7 +1277,12 @@ void monoHZZ4L::analysis(string inputFile,
       h_costheta2->Fill(costheta2, eventWeight);
       h_cosPhi->Fill(cosPhi, eventWeight);
       h_cosPhi1->Fill(cosPhi1, eventWeight);
-  
+
+      evtTree.dRl1l2 = dRl1l2;
+      evtTree.dRl3l4 = dRl3l4;
+      evtTree.dRZ1Z2 = dRZ1Z2;
+      evtTree.dRljet = dRljet;
+      
       evtTree.Fill();
       
     } // END OF EVENT LOOP
@@ -1248,81 +1309,99 @@ void monoHZZ4L::analysis(string inputFile,
       h_genPT[c]->Draw("hist");
     }
   cPT->Update();
-  cgenPT->Update();
+  sprintf(filename, "plots/%s_PT.png", namen.c_str());
+  cPT->Print(filename, "png");
   
+  cgenPT->Update();
+  sprintf(filename, "plots/%s_genPT.png", namen.c_str());
+  cgenPT->Print(filename, "png");
+  
+  // -----------------------------------------------------------
+  TCanvas* cdR = new TCanvas("dR", "dR", 10, 10, 800, 800);
+  cdR->Divide(2, 2);
+  cdR->cd(1); h_dRl1l2->Draw("hist");
+  cdR->cd(2); h_dRl3l4->Draw("hist");
+  cdR->cd(3); h_dRZ1Z2->Draw("hist");
+  cdR->cd(4); h_dRljet->Draw("hist");
+  cdR->Update();
+  sprintf(filename, "plots/%s_dR.png", namen.c_str());
+  cdR->Print(filename, "png");
+
+  // -----------------------------------------------------------  
   theFile->cd();
   cPT->Write();
   cgenPT->Write();
-
-  TCanvas* cmass = new TCanvas("masses","masses", 200, 200, 800, 800);
+  cdR->Write();
+  
+  TCanvas* cmass = new TCanvas("masses","masses",
+			       200, 200, 800, 800);
   cmass->Divide(2, 2);
-  
-  cmass->cd(1); 
-  h_Z1mass->Draw("hist"); 
-  
-  cmass->cd(2); 
-  h_Z2mass->Draw("hist"); 
-  
-  cmass->cd(3); 
-  h_Hmass->Draw("hist");
-  
-  cmass->cd(4); 
-  h_HmassLarge->Draw("hist");
+  cmass->cd(1); h_Z1mass->Draw("hist"); 
+  cmass->cd(2); h_Z2mass->Draw("hist"); 
+  cmass->cd(3); h_Hmass->Draw("hist");
+  cmass->cd(4); h_HmassLarge->Draw("hist");
   
   cmass->Update();
+  sprintf(filename, "plots/%s_masses.png", namen.c_str());
+  cmass->Print(filename, "png");
   
   theFile->cd();
   cmass->Write();
 
+  // -----------------------------------------------------------
+  TH1F* h_cutflow = (TH1F*)h_nEvent->Clone("h_cutflow");
+  h_nEvent->Scale(1.0/h_nEvent->GetBinContent(1));
+  h_nEvent->SetMaximum(1.e-3);
+  h_nEvent->SetMaximum(1.1);
+    
+  TCanvas* cuts = new TCanvas("cutflow", "cut flow", 500, 10, 500, 500);
+  cuts->SetGridy();
+  cuts->cd();
+  h_nEvent->Draw("hist");
+  cuts->Update();
+  sprintf(filename, "plots/%s_cutflow.png", namen.c_str());
+  cuts->Print(filename, "png");
+  
+  theFile->cd();
+  cuts->Write();
+  
   // -----------------------------------------------   
   // get total weighted event count
   // -----------------------------------------------   
-  double summedWeight    = h_nEvent->GetBinContent(1);
-  double summedWeightUnc = h_nEvent->GetBinError(1);
+  double summedWeight    = h_cutflow->GetBinContent(1);
+  double summedWeightUnc = h_cutflow->GetBinError(1);
   
   char summary[512];
   totalPassedUnc = sqrt(totalPassedUnc);
   sprintf(summary,
-	   "======================================================\n"
-	   "Event count:      %10.3f +/- %-10.3f events\n"
-	   "Selected count:   %10.3f +/- %-10.3f events\n"
-	   "======================================================\n",
-	   summedWeight, summedWeightUnc,
-	   totalPassed, totalPassedUnc);
-   
-   cout << summary << endl;   
-   // -----------------------------------------------
-   // cut flow
-   // -----------------------------------------------
-   gStyle->SetOptStat(0);
-
-   cout << endl << "cut flow" << endl;
-   for(int i=0; i < h_nEvent->GetNbinsX(); i++)
-     {
-       double c = h_nEvent->GetBinContent(i+1);
-       char rec[80];
-       sprintf(rec, "\t%-20s %10.3f",
-	       h_nEvent->GetXaxis()->GetBinLabel(i+1), c);
-       cout << rec << endl;
-     }
-   
-   h_nEvent->Scale(1.0/summedWeight);
-   h_nEvent->SetMaximum(1.e-3);
-   h_nEvent->SetMaximum(1.1);
-    
-   TCanvas* cuts = new TCanvas("cutflow", "cut flow", 500, 10, 500, 500);
-   cuts->SetGridy();
-   cuts->cd();
-   h_nEvent->Draw("hist");
-   cuts->Update();
-   sprintf(filename, "plots/%s_cutflow.png", namen.c_str());
-   cuts->Print(filename, "png");
-   
-   theFile->cd();
-   theFile->Write();
-   cuts->Write();
-   
-   gSystem->Sleep(5000);
+	  "\n"
+	  "======================================================\n"
+	  "Event count:      %10.3f +/- %-10.3f events\n"
+	  "Selected count:   %10.3f +/- %-10.3f events\n"
+	  "======================================================\n",
+	  summedWeight, summedWeightUnc,
+	  totalPassed, totalPassedUnc);
+  
+  cout << summary << endl;   
+  // -----------------------------------------------
+  // cut flow
+  // -----------------------------------------------
+  gStyle->SetOptStat(0);
+  
+  cout << "Cut Flow" << endl;
+  for(int i=0; i < h_nEvent->GetNbinsX(); i++)
+    {
+      double c = h_nEvent->GetBinContent(i+1);
+      char rec[80];
+      sprintf(rec, "\t%-20s %10.3f",
+	      h_nEvent->GetXaxis()->GetBinLabel(i+1), c);
+      cout << rec << endl;
+    }
+  
+  theFile->cd();
+  theFile->Write();
+  
+  gSystem->Sleep(5000);
 
 
    if ( muonEff ) delete muonEff;

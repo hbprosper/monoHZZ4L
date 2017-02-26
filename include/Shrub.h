@@ -91,6 +91,10 @@ struct Shrub
   float	costheta2;
   float	cosPhi;
   float	cosPhi1;
+  float dRl1l2;
+  float dRl3l4;
+  float dRZ1Z2;
+  float dRljet;
 
   //------------------------------------------------------------------------
   Shrub()
@@ -199,11 +203,15 @@ struct Shrub
     tree->Branch("deltaetajj", 	&deltaetajj, 	"deltaetajj/F");
     tree->Branch("HT", 	        &HT, 	        "HT/F");
     tree->Branch("met", 	&met, 	"met/F");
-    tree->Branch("costhetastar", 	&costhetastar, 	"costhetastar/F");
+    tree->Branch("costhetastar",&costhetastar, 	"costhetastar/F");
     tree->Branch("costheta1", 	&costheta1, 	"costheta1/F");
     tree->Branch("costheta2", 	&costheta2, 	"costheta2/F");
     tree->Branch("cosPhi", 	&cosPhi, 	"cosPhi/F");
     tree->Branch("cosPhi1", 	&cosPhi1, 	"cosPhi1/F");
+    tree->Branch("dRl1l2", 	&dRl1l2, 	"dRl1l2/F");
+    tree->Branch("dRl3l4", 	&dRl3l4, 	"dRl3l4/F");
+    tree->Branch("dRZ1Z2", 	&dRZ1Z2, 	"dRZ1Z2/F");
+    tree->Branch("dRljet", 	&dRljet, 	"dRljet/F");
   }
   ~Shrub() { delete file; }
 
@@ -247,7 +255,7 @@ struct Shrub
     Z2eta	= clearvalue;
     Z2phi	= clearvalue;
     Z2mass	= clearvalue;
-    Hpt	= clearvalue;
+    Hpt	        = clearvalue;
     Heta	= clearvalue;
     Hphi	= clearvalue;
     Hmass	= clearvalue;
@@ -283,13 +291,17 @@ struct Shrub
     j2mass	= clearvalue;
     massjj	= clearvalue;
     deltaetajj	= clearvalue;
-    HT	= clearvalue;
-    met	= clearvalue;
-    costhetastar	= clearvalue;
+    HT	        = clearvalue;
+    met	        = clearvalue;
+    costhetastar= clearvalue;
     costheta1	= clearvalue;
     costheta2	= clearvalue;
     cosPhi	= clearvalue;
     cosPhi1	= clearvalue;
+    dRl1l2      = clearvalue;
+    dRl3l4      = clearvalue;
+    dRZ1Z2      = clearvalue;
+    dRljet      = clearvalue;
   }
   
   void Fill()
