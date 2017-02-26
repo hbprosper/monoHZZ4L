@@ -1349,12 +1349,28 @@ void monoHZZ4L::analysis(string inputFile,
   cmass->Write();
 
   // -----------------------------------------------------------
-  TH1F* h_cutflow = (TH1F*)h_nEvent->Clone("h_cutflow");
+  // CUT FLOW
+  // -----------------------------------------------------------
+  double summedWeight    = h_nEvent->GetBinContent(1);
+  double summedWeightUnc = h_nEvent->GetBinError(1);  
+  vector<string> cutflow;
+  for(int i=0; i < h_nEvent->GetNbinsX(); i++)
+    {
+      double c = h_nEvent->GetBinContent(i+1);
+      char rec[80];
+      sprintf(rec, "\t%-20s %10.3f\t%10.3f",
+	      h_nEvent->GetXaxis()->GetBinLabel(i+1), c, c/summedWeight);
+      cutflow.push_back(rec);
+    }
+
+  
   h_nEvent->Scale(1.0/h_nEvent->GetBinContent(1));
   h_nEvent->SetMaximum(1.e-3);
   h_nEvent->SetMaximum(1.1);
     
-  TCanvas* cuts = new TCanvas("cutflow", "cut flow", 500, 10, 500, 500);
+  TCanvas* cuts = new TCanvas("cutflow", "cut flow",
+			      500, 10, 500, 500);
+  gStyle->SetOptStat(0);
   cuts->SetGridy();
   cuts->cd();
   h_nEvent->Draw("hist");
@@ -1365,12 +1381,9 @@ void monoHZZ4L::analysis(string inputFile,
   theFile->cd();
   cuts->Write();
   
-  // -----------------------------------------------   
-  // get total weighted event count
-  // -----------------------------------------------   
-  double summedWeight    = h_cutflow->GetBinContent(1);
-  double summedWeightUnc = h_cutflow->GetBinError(1);
-  
+  // -----------------------------------------------------------  
+  // SUMMARY
+  // -----------------------------------------------------------  
   char summary[512];
   totalPassedUnc = sqrt(totalPassedUnc);
   sprintf(summary,
@@ -1382,28 +1395,14 @@ void monoHZZ4L::analysis(string inputFile,
 	  summedWeight, summedWeightUnc,
 	  totalPassed, totalPassedUnc);
   
-  cout << summary << endl;   
-  // -----------------------------------------------
-  // cut flow
-  // -----------------------------------------------
-  gStyle->SetOptStat(0);
-  
-  cout << "Cut Flow" << endl;
-  for(int i=0; i < h_nEvent->GetNbinsX(); i++)
-    {
-      double c = h_nEvent->GetBinContent(i+1);
-      char rec[80];
-      sprintf(rec, "\t%-20s %10.3f",
-	      h_nEvent->GetXaxis()->GetBinLabel(i+1), c);
-      cout << rec << endl;
-    }
-  
+  cout << summary << endl;
+  cout << "Cut flow" << endl;
+  for(size_t c=0; c < cutflow.size(); c++)
+    cout << cutflow[c] << endl;
+  // -----------------------------------------------------------  
+
   theFile->cd();
   theFile->Write();
-  
-  gSystem->Sleep(5000);
-
-
-   if ( muonEff ) delete muonEff;
-   if ( elecEff ) delete elecEff;
+  if ( muonEff ) delete muonEff;
+  if ( elecEff ) delete elecEff;
 }
