@@ -929,20 +929,6 @@ void monoHZZ4L::analysis(string inputFile,
            
       // apply jet filter
       filterJets(jet);
-
-      // ----------------------------------------------------------
-      // histogram DeltaR between each lepton and jet
-      double dRljet = 1.e4;
-      for(size_t i=0; i < lepton.size(); i++)
-	{
-	  for(size_t j=0; j < jet.size(); j++)
-	    {
-	      double dR = nic::deltaR(lepton[i].Eta(), lepton[i].Phi(),
-				      jet[j].Eta(), jet[j].Phi());
-	      if ( dR < dRljet ) dRljet = dR;
-	    }
-	}      
-      if ( dRljet < 1.e4 ) h_dRljet->Fill(dRljet, eventWeight);
       
       // ----------------------------------------------------------
       // CUT 1: number of leptons > 1
@@ -960,7 +946,20 @@ void monoHZZ4L::analysis(string inputFile,
       isolateObjects(lepton, lepton, 0.3);      
       if ( !(lepton.size() > 1) ) continue;
       h_nEvent->Fill(2.1, eventWeight);
- 
+
+      // ----------------------------------------------------------
+      // histogram DeltaR between each lepton and jet
+      double dRljet = 1.e4;
+      for(size_t i=0; i < lepton.size(); i++)
+	{
+	  for(size_t j=0; j < jet.size(); j++)
+	    {
+	      double dR = nic::deltaR(lepton[i].Eta(), lepton[i].Phi(),
+				      jet[j].Eta(), jet[j].Phi());
+	      if ( dR < dRljet ) dRljet = dR;
+	    }
+	}      
+      if ( dRljet < 1.e4 ) h_dRljet->Fill(dRljet, eventWeight);
       
       // ----------------------------------------------------------
       // Match gen leptons to reco leptons
