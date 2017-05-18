@@ -239,7 +239,7 @@ void purgeParticles(std::vector<LHParticle>& particles)
   particles.resize(c);
 
   if ( DEBUG > 0 )
-    listParticles("==> POST-PRURGE", particles);
+    listParticles("==> POST-PURGE", particles);
 }
 
 void filterLeptons(std::vector<LHParticle>& lepton)
@@ -527,8 +527,8 @@ findZ1(vector<LHParticle>& dilepton)
   if ( which < 0 ) return -1;
 
   // 40 < mZ1 < 120 GeV
-  //if ( dilepton[which].M() <= 40 )  return -1;
-  //if ( dilepton[which].M() >= 120 ) return -1;
+  if ( dilepton[which].M() <= 40 )  return -1;
+  if ( dilepton[which].M() >= 120 ) return -1;
   
   dilepton[which].Name = "Z1";
   return which;  
@@ -541,8 +541,8 @@ findZ2(vector<LHParticle>& dilepton)
   if ( dilepton.size() < 1 ) return -1;
 
   // 12 < mZ2 < 120 GeV
-  //if ( dilepton[0].M() <= 12 )  return -1;
-  //if ( dilepton[0].M() >= 120 ) return -1;
+  if ( dilepton[0].M() <= 12 )  return -1;
+  if ( dilepton[0].M() >= 120 ) return -1;
   
   dilepton[0].Name = "Z2";
   return 0;
@@ -699,13 +699,12 @@ void monoHZZ4L::analysis(string inputFile,
   h_nEvent->Sumw2();
   h_nEvent->GetXaxis()->SetBinLabel(1,"no cuts");
   h_nEvent->GetXaxis()->SetBinLabel(2,"leptons>1");
-  h_nEvent->GetXaxis()->SetBinLabel(3,"jets>1");
+  h_nEvent->GetXaxis()->SetBinLabel(3,"jets(pT>20)>1");
   h_nEvent->GetXaxis()->SetBinLabel(4,"pT1>20");
   h_nEvent->GetXaxis()->SetBinLabel(5,"pT2>10");
-  h_nEvent->GetXaxis()->SetBinLabel(6,"Z1");
-  h_nEvent->GetXaxis()->SetBinLabel(7,"Z2");
-  h_nEvent->GetXaxis()->SetBinLabel(8,"dR(li,lj)>0.02");
-  h_nEvent->GetXaxis()->SetBinLabel(9,"m(l+,l'-)>4");
+  h_nEvent->GetXaxis()->SetBinLabel(6,"Z1(40<m<120)");
+  h_nEvent->GetXaxis()->SetBinLabel(7,"Z2(12<m<120)");
+  h_nEvent->GetXaxis()->SetBinLabel(8,"m(l+,l'-)>4");
   
   TH1F* h_nleptons = new TH1F("nleptons", "", 10, 0, 10);
   h.push_back(h_nleptons);
@@ -721,7 +720,7 @@ void monoHZZ4L::analysis(string inputFile,
   TH1F* h_genEta[maxlep];
   TH1F* h_genPT[maxlep];
 
-  TH1F* h_isol = new TH1F("isol", "", 100, 0., 2.);
+  TH1F* h_isol = new TH1F("isol", "", 100, 0., 0.5);
   h.push_back(h_isol);
   h_isol->GetXaxis()->SetTitle("#Sigma_{i}"
 			       "|#font[12]{p}_{Ti}|/#font[12]{p}_{Tl}");
@@ -1060,14 +1059,14 @@ void monoHZZ4L::analysis(string inputFile,
       // ----------------------------------------------------------
       // CUT 3: pT1 > 20
       // ----------------------------------------------------------
-      //if ( !(lepton[0].Pt() > 20) ) continue;
-      //h_nEvent->Fill(3.1, eventWeight);      
+      if ( !(lepton[0].Pt() > 20) ) continue;
+      h_nEvent->Fill(3.1, eventWeight);      
 
       // ----------------------------------------------------------
       // CUT 4: pT2 > 10
       // ----------------------------------------------------------
-      //if ( !(lepton[1].Pt() > 10) ) continue;
-      //h_nEvent->Fill(4.1, eventWeight);
+      if ( !(lepton[1].Pt() > 10) ) continue;
+      h_nEvent->Fill(4.1, eventWeight);
 
       // ----------------------------------------------------------
       // histogram min(DeltaR) between each lepton and jet
@@ -1249,21 +1248,15 @@ void monoHZZ4L::analysis(string inputFile,
       h_dRZ1Z2->Fill(dRZ1Z2, eventWeight);
       
       // ----------------------------------------------------------
-      // CUT 7: dR(li,lj) > 0.02
+      // CUT 7: m(l+,l-) > 4 GeV 
       // ----------------------------------------------------------
       vector<LHParticle*> plepton(4);
       plepton[0] = &L1;
       plepton[1] = &L2;
       plepton[2] = &L3;
-      plepton[3] = &L4;
-      //if ( !ghostFree(plepton) ) continue;
-      //h_nEvent->Fill(7.1, eventWeight);
- 
-      // ----------------------------------------------------------
-      // CUT 8: m(l+,l-) > 4 GeV 
-      // ----------------------------------------------------------
+      plepton[3] = &L4;      
       if ( !QCDsuppressed(plepton) ) continue;
-      h_nEvent->Fill(8.1, eventWeight);      			 
+      h_nEvent->Fill(7.1, eventWeight);      			 
 
       // number of events that pass selection criteria
       passed++;
