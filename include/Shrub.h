@@ -40,39 +40,48 @@ struct Shrub
   float	genl4phi;
   int	genl4match;
   int	genl4PID;
+  
   float	Z1pt;
   float	Z1eta;
   float	Z1phi;
   float	Z1mass;
+  
   float	Z2pt;
   float	Z2eta;
   float	Z2phi;
   float	Z2mass;
-  float	Hpt;
-  float	Heta;
-  float	Hphi;
-  float	Hmass;
+  
+  float	pt4l;
+  float	eta4l;
+  float	phi4l;
+  float	mass4l;
+  
   int	nleps;
+  
   float	l1pt;
   float	l1eta;
   float	l1phi;
   int	l1match;
   int	l1PID;
+  
   float	l2pt;
   float	l2eta;
   float	l2phi;
   int	l2match;
   int	l2PID;
+  
   float	l3pt;
   float	l3eta;
   float	l3phi;
   int	l3match;
   int	l3PID;
+  
   float	l4pt;
   float	l4eta;
   float	l4phi;
   int	l4match;
   int	l4PID;
+  
   int	njets;
   float	j1pt;
   float	j1eta;
@@ -83,7 +92,7 @@ struct Shrub
   float	j2phi;
   float	j2mass;
   float	massjj;
-  float	deltaetajj;
+  float	detajj;
   float HT;
   float	met;
   float	costhetastar;
@@ -96,7 +105,7 @@ struct Shrub
   float dRllmin;
   float dRljmin;
   float dRZ1Z2;
-
+  float isol;
 
   //------------------------------------------------------------------------
   Shrub()
@@ -167,29 +176,33 @@ struct Shrub
     tree->Branch("Z2eta", 	&Z2eta, 	"Z2eta/F");
     tree->Branch("Z2phi", 	&Z2phi, 	"Z2phi/F");
     tree->Branch("Z2mass", 	&Z2mass, 	"Z2mass/F");
-    tree->Branch("Hpt", 	&Hpt, 	"Hpt/F");
-    tree->Branch("Heta", 	&Heta, 	"Heta/F");
-    tree->Branch("Hphi", 	&Hphi, 	"Hphi/F");
-    tree->Branch("Hmass", 	&Hmass, 	"Hmass/F");
+    tree->Branch("pt4l", 	&pt4l, 	        "pt4l/F");
+    tree->Branch("eta4l", 	&eta4l, 	"eta4l/F");
+    tree->Branch("phi4l", 	&phi4l, 	"phi4l/F");
+    tree->Branch("mass4l", 	&mass4l, 	"mass4l/F");
     tree->Branch("nleps", 	&nleps, 	"nleps/I");
     tree->Branch("l1pt", 	&l1pt, 	"l1pt/F");
     tree->Branch("l1eta", 	&l1eta, 	"l1eta/F");
     tree->Branch("l1phi", 	&l1phi, 	"l1phi/F");
+    //tree->Branch("l1isol", 	&l1isol, 	"l1isol/F");
     tree->Branch("l1match", 	&l1match, 	"l1match/I");
     tree->Branch("l1PID", 	&l1PID, 	"l1PID/I");
     tree->Branch("l2pt", 	&l2pt, 	"l2pt/F");
     tree->Branch("l2eta", 	&l2eta, 	"l2eta/F");
     tree->Branch("l2phi", 	&l2phi, 	"l2phi/F");
+    //tree->Branch("l2isol", 	&l2isol, 	"l2isol/F");    
     tree->Branch("l2match", 	&l2match, 	"l2match/I");
     tree->Branch("l2PID", 	&l2PID, 	"l2PID/I");
     tree->Branch("l3pt", 	&l3pt, 	"l3pt/F");
     tree->Branch("l3eta", 	&l3eta, 	"l3eta/F");
     tree->Branch("l3phi", 	&l3phi, 	"l3phi/F");
+    //tree->Branch("l3isol", 	&l3isol, 	"l3isol/F");        
     tree->Branch("l3match", 	&l3match, 	"l3match/I");
     tree->Branch("l3PID", 	&l3PID, 	"l3PID/I");
     tree->Branch("l4pt", 	&l4pt, 	"l4pt/F");
     tree->Branch("l4eta", 	&l4eta, 	"l4eta/F");
     tree->Branch("l4phi", 	&l4phi, 	"l4phi/F");
+    //tree->Branch("l4isol", 	&l4isol, 	"l4isol/F");        
     tree->Branch("l4match", 	&l4match, 	"l4match/I");
     tree->Branch("l4PID", 	&l4PID, 	"l4PID/I");
     tree->Branch("njets", 	&njets, 	"njets/I");
@@ -202,7 +215,7 @@ struct Shrub
     tree->Branch("j2phi", 	&j2phi, 	"j2phi/F");
     tree->Branch("j2mass", 	&j2mass, 	"j2mass/F");
     tree->Branch("massjj", 	&massjj, 	"massjj/F");
-    tree->Branch("deltaetajj", 	&deltaetajj, 	"deltaetajj/F");
+    tree->Branch("detajj", 	&detajj, 	"detajj/F");
     tree->Branch("HT", 	        &HT, 	        "HT/F");
     tree->Branch("met", 	&met, 	"met/F");
     tree->Branch("costhetastar",&costhetastar, 	"costhetastar/F");
@@ -215,7 +228,7 @@ struct Shrub
     tree->Branch("dRllmin", 	&dRllmin, 	"dRllmin/F");
     tree->Branch("dRljmin", 	&dRljmin, 	"dRljmin/F");    
     tree->Branch("dRZ1Z2", 	&dRZ1Z2, 	"dRZ1Z2/F");
-
+    tree->Branch("isol", 	&isol, 	"isol/F");        
   }
   ~Shrub() { delete file; }
 
@@ -259,29 +272,33 @@ struct Shrub
     Z2eta	= clearvalue;
     Z2phi	= clearvalue;
     Z2mass	= clearvalue;
-    Hpt	        = clearvalue;
-    Heta	= clearvalue;
-    Hphi	= clearvalue;
-    Hmass	= clearvalue;
+    pt4l	= clearvalue;
+    eta4l	= clearvalue;
+    phi4l	= clearvalue;
+    mass4l	= clearvalue;
     nleps	= clearvalue;
     l1pt	= clearvalue;
     l1eta	= clearvalue;
     l1phi	= clearvalue;
+    //l1isol	= clearvalue;
     l1match	= clearvalue;
     l1PID	= clearvalue;
     l2pt	= clearvalue;
     l2eta	= clearvalue;
     l2phi	= clearvalue;
+    //l2isol	= clearvalue;    
     l2match	= clearvalue;
     l2PID	= clearvalue;
     l3pt	= clearvalue;
     l3eta	= clearvalue;
     l3phi	= clearvalue;
+    //l3isol	= clearvalue;    
     l3match	= clearvalue;
     l3PID	= clearvalue;
     l4pt	= clearvalue;
     l4eta	= clearvalue;
     l4phi	= clearvalue;
+    //l4isol	= clearvalue;    
     l4match	= clearvalue;
     l4PID	= clearvalue;
     njets	= clearvalue;
@@ -294,7 +311,7 @@ struct Shrub
     j2phi	= clearvalue;
     j2mass	= clearvalue;
     massjj	= clearvalue;
-    deltaetajj	= clearvalue;
+    detajj	= clearvalue;
     HT	        = clearvalue;
     met	        = clearvalue;
     costhetastar= clearvalue;
@@ -307,7 +324,7 @@ struct Shrub
     dRllmin     = clearvalue;
     dRljmin     = clearvalue;
     dRZ1Z2      = clearvalue;
-
+    isol        = clearvalue;
   }
   
   void Fill()
