@@ -527,8 +527,8 @@ findZ1(vector<LHParticle>& dilepton)
   if ( which < 0 ) return -1;
 
   // 40 < mZ1 < 120 GeV
-  if ( dilepton[which].M() <= 12 )  return -1;
-  //if ( dilepton[which].M() >= 120 ) return -1;
+  if ( dilepton[which].M() <= 40 )  return -1;
+  if ( dilepton[which].M() >= 120 ) return -1;
   
   dilepton[which].Name = "Z1";
   return which;  
@@ -542,7 +542,7 @@ findZ2(vector<LHParticle>& dilepton)
 
   // 12 < mZ2 < 120 GeV
   if ( dilepton[0].M() <= 12 )  return -1;
-  //if ( dilepton[0].M() >= 120 ) return -1;
+  if ( dilepton[0].M() >= 120 ) return -1;
   
   dilepton[0].Name = "Z2";
   return 0;
@@ -702,8 +702,8 @@ void monoHZZ4L::analysis(string inputFile,
   h_nEvent->GetXaxis()->SetBinLabel(3,"jets(pT>20)>1");
   h_nEvent->GetXaxis()->SetBinLabel(4,"pT1>20");
   h_nEvent->GetXaxis()->SetBinLabel(5,"pT2>10");
-  h_nEvent->GetXaxis()->SetBinLabel(6,"Z1(m>12)");
-  h_nEvent->GetXaxis()->SetBinLabel(7,"Z2(m>12)");
+  h_nEvent->GetXaxis()->SetBinLabel(6,"Z1(40<m<120)");
+  h_nEvent->GetXaxis()->SetBinLabel(7,"Z2(12<m<120)");
   h_nEvent->GetXaxis()->SetBinLabel(8,"m(l+,l'-)>4");
   
   TH1F* h_nleptons = new TH1F("nleptons", "", 10, 0, 10);
@@ -1059,14 +1059,14 @@ void monoHZZ4L::analysis(string inputFile,
       // ----------------------------------------------------------
       // CUT 3: pT1 > 20
       // ----------------------------------------------------------
-      //if ( !(lepton[0].Pt() > 20) ) continue;
-      //h_nEvent->Fill(3.1, eventWeight);      
+      if ( !(lepton[0].Pt() > 20) ) continue;
+      h_nEvent->Fill(3.1, eventWeight);      
 
       // ----------------------------------------------------------
       // CUT 4: pT2 > 10
       // ----------------------------------------------------------
-      //if ( !(lepton[1].Pt() > 10) ) continue;
-      //h_nEvent->Fill(4.1, eventWeight);
+      if ( !(lepton[1].Pt() > 10) ) continue;
+      h_nEvent->Fill(4.1, eventWeight);
 
       // ----------------------------------------------------------
       // histogram min(DeltaR) between each lepton and jet
@@ -1255,8 +1255,8 @@ void monoHZZ4L::analysis(string inputFile,
       plepton[1] = &L2;
       plepton[2] = &L3;
       plepton[3] = &L4;      
-      //if ( !QCDsuppressed(plepton) ) continue;
-      //h_nEvent->Fill(7.1, eventWeight);      			 
+      if ( !QCDsuppressed(plepton) ) continue;
+      h_nEvent->Fill(7.1, eventWeight);      			 
 
       // number of events that pass selection criteria
       passed++;
