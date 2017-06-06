@@ -1070,8 +1070,6 @@ void monoHZZ4L::analysis(string inputFile,
 
       // ----------------------------------------------------------
       // histogram min(DeltaR) between each lepton and jet
-      int index=-1;
-      int jndex=-1;
       double dRljmin = 1.e4;
       for(size_t i=0; i < lepton.size(); i++)
 	{
@@ -1082,26 +1080,10 @@ void monoHZZ4L::analysis(string inputFile,
 	      if ( dR < dRljmin )
 		{
 		  dRljmin = dR;
-		  index = i;
-		  jndex = j;
 		}
 	    }
 	}
       h_dRljmin->Fill(dRljmin, eventWeight);
-
-      // if ( dRljmin < dRljcut )
-      // 	{
-      // 	  // This should never happen!!
-      // 	  cout << "*** entry: " << entry << endl
-      // 	       << "\tlepton(eta): " << lepton[index].Eta()
-      // 	       << "\tlepton(phi): " << lepton[index].Phi()
-      // 	       << endl
-      // 	       << "\tjet(eta): " << jet[jndex].Eta()
-      // 	       << "\tjet(phi): " << jet[jndex].Phi()
-      // 	       << endl
-      // 	       << "\tdR = " << dRljmin
-      // 	       << endl;
-      // 	}
       
       // histogram min(DeltaR) between leptons
       double dRllmin = 1.e4;
@@ -1114,27 +1096,10 @@ void monoHZZ4L::analysis(string inputFile,
 	      if ( dR < dRllmin )
 		{
 		  dRllmin = dR;
-		  index = i;
-		  jndex = j;		  
 		}
 	    }
 	}
       h_dRllmin->Fill(dRllmin, eventWeight);
-      
-      // if ( dRllmin < dRllcut )
-      //  {
-      // 	 // This should never happen!!
-      // 	  cout << "*** entry: " << entry << endl
-      // 	       << "\tlepton(eta): " << lepton[index].Eta()
-      // 	       << "  lepton(phi): " << lepton[index].Phi()
-      // 	       << endl
-      // 	       << "\tlepton(eta): " << lepton[jndex].Eta()
-      // 	       << "  lepton(phi): " << lepton[jndex].Phi()
-      // 	       << endl
-      // 	       << "\tdR = " << dRllmin
-      // 	       << endl;
-      // 	}      
-
       
       // ----------------------------------------------------------
       // Match gen leptons to reco leptons
